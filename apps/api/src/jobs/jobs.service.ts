@@ -3,19 +3,28 @@ import PgBoss from 'pg-boss';
 
 /**
  * Background jobs run on pg-boss — a queue that lives inside Postgres, so there
- * is no Redis to operate. Later increments register handlers here:
- *   - booking reminder emails (spec section 5)
- *   - Moodle provisioning, gated on finance status (spec sections 9 & 12)
+ * is no Redis to operate. Feature modules register handlers via work()/schedule()
+ * in their own onModuleInit; this service just owns the boss lifecycle and gates
+ * every call on a `started` promise so registration order doesn't matter.
  */
 @Injectable()
 export class JobsService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(JobsService.name);
   private boss?: PgBoss;
+  private readonly started: Promise<void>;
+  private markStarted!: () => void;
+
+  constructor() {
+    this.started = new Promise((resolve) => {
+      this.markStarted = resolve;
+    });
+  }
 
   async onModuleInit() {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
       this.logger.warn('DATABASE_URL not set — job queue disabled');
+      this.markStarted();
       return;
     }
     this.boss = new PgBoss({
@@ -24,6 +33,7 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     });
     this.boss.on('error', (err) => this.logger.error('pg-boss error', err));
     await this.boss.start();
+    this.markStarted();
     this.logger.log('pg-boss started (job queue ready)');
   }
 
@@ -31,13 +41,39 @@ export class JobsService implements OnModuleInit, OnModuleDestroy {
     await this.boss?.stop({ graceful: true });
   }
 
-  /** Enqueue a job by name. Handlers are wired in their feature modules. */
-  async enqueue<T extends object>(queue: string, data: T): Promise<string | null> {
-    if (!this.boss) throw new Error('Job queue not started');
-    return this.boss.send(queue, data);
+  async createQueue(name: string): Promise<void> {
+    await this.started;
+    if (!this.boss) return;
+    try {
+      await this.boss.createQueue(name);
+    } catch {
+      /* already exists — fine */
+    }
   }
 
-  get instance(): PgBoss | undefined {
-    return this.boss;
+  async work<T extends object>(
+    name: string,
+    handler: (job: PgBoss.Job<T>) => Promise<void>,
+  ): Promise<void> {
+    await this.started;
+    if (!this.boss) return;
+    // pg-boss v10 delivers a batch; unwrap to per-job for callers.
+    await this.boss.work<T>(name, async (jobs) => {
+      for (const job of ([] as PgBoss.Job<T>[]).concat(jobs as never)) {
+        await handler(job);
+      }
+    });
+  }
+
+  async schedule(name: string, cron: string, data: object = {}): Promise<void> {
+    await this.started;
+    if (!this.boss) return;
+    await this.boss.schedule(name, cron, data as never);
+  }
+
+  async enqueue<T extends object>(name: string, data: T): Promise<string | null> {
+    await this.started;
+    if (!this.boss) throw new Error('Job queue not started');
+    return this.boss.send(name, data);
   }
 }

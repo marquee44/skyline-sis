@@ -48,12 +48,18 @@ export default async function Home() {
         </ul>
       </section>
 
-      <div>
+      <div className="flex gap-3">
         <a
-          href="/login"
+          href="/intake"
           className="inline-block rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
         >
-          Staff sign in →
+          Start your application →
+        </a>
+        <a
+          href="/login"
+          className="inline-block rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50 dark:border-slate-700"
+        >
+          Staff sign in
         </a>
       </div>
 

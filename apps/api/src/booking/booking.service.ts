@@ -9,6 +9,7 @@ import { DateTime } from 'luxon';
 import { ApplicantStage, ConsultationStatus, Prisma } from '@skyline/db';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { ZoomService } from '../zoom/zoom.service';
 import { ApplicantsService } from '../applicants/applicants.service';
 import { isValidTimezone } from '../common/time';
 import { generateSlots, Slot } from './slots';
@@ -27,8 +28,13 @@ export class BookingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly email: EmailService,
+    private readonly zoom: ZoomService,
     private readonly applicants: ApplicantsService,
   ) {}
+
+  private minutesBetween(a: Date, b: Date): number {
+    return Math.round((b.getTime() - a.getTime()) / 60000);
+  }
 
   // Reserved slot-starts (epoch ms) for an advisor over a UTC window.
   private async takenSet(advisorId: string, fromUtc: Date, toUtc: Date): Promise<Set<number>> {
@@ -88,6 +94,15 @@ export class BookingService {
       throw new BadRequestException('Requested time is not an available slot for this advisor');
     }
 
+    // Auto-create a Zoom meeting (falls back to the standing link if Zoom isn't
+    // configured yet). Done before insert so the link is stored atomically.
+    const zoomJoinUrl = await this.zoom.createMeeting({
+      topic: 'Skyline admissions consultation',
+      startUtc: slot.startUtc,
+      durationMinutes: this.minutesBetween(slot.startUtc, slot.endUtc),
+      timezone: dto.studentTimezone,
+    });
+
     let consultation;
     try {
       consultation = await this.prisma.consultation.create({
@@ -98,7 +113,7 @@ export class BookingService {
           scheduledEndUtc: slot.endUtc,
           studentTimezone: dto.studentTimezone,
           status: ConsultationStatus.booked,
-          zoomJoinUrl: process.env.ZOOM_FALLBACK_LINK || null,
+          zoomJoinUrl,
         },
       });
     } catch (e) {

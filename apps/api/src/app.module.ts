@@ -9,6 +9,8 @@ import { ApplicantsModule } from './applicants/applicants.module';
 import { AdvisorsModule } from './advisors/advisors.module';
 import { BookingModule } from './booking/booking.module';
 import { EmailModule } from './email/email.module';
+import { ZoomModule } from './zoom/zoom.module';
+import { IntakeModule } from './intake/intake.module';
 
 @Module({
   imports: [
@@ -22,10 +24,12 @@ import { EmailModule } from './email/email.module';
     JobsModule,
     AuthModule,
     EmailModule,
+    ZoomModule,
     CatalogModule,
     ApplicantsModule,
     AdvisorsModule,
     BookingModule,
+    IntakeModule,
   ],
 })
 export class AppModule {}
