@@ -1,0 +1,58 @@
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ConsultationStatus } from '@skyline/db';
+import { JwtAuthGuard, RolesGuard } from '../auth/guards';
+import { Roles } from '../auth/roles';
+import { BookingService } from './booking.service';
+import { CreateBookingDto, RescheduleDto, SlotsQueryDto } from './dto';
+
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('staff', 'admin')
+@Controller()
+export class BookingController {
+  constructor(private readonly booking: BookingService) {}
+
+  // Available slots for an advisor in a date range (YYYY-MM-DD).
+  @Get('advisors/:id/slots')
+  slots(@Param('id') id: string, @Query() q: SlotsQueryDto) {
+    return this.booking.availableSlots(id, q.from, q.to);
+  }
+
+  @Get('consultations')
+  list(
+    @Query('advisorId') advisorId?: string,
+    @Query('applicantId') applicantId?: string,
+    @Query('status') status?: ConsultationStatus,
+  ) {
+    return this.booking.list({ advisorId, applicantId, status });
+  }
+
+  @Get('consultations/:id')
+  get(@Param('id') id: string) {
+    return this.booking.get(id);
+  }
+
+  @Post('consultations')
+  book(@Body() dto: CreateBookingDto, @Req() req: { user?: { id: string } }) {
+    return this.booking.book(dto, req.user?.id);
+  }
+
+  @Patch('consultations/:id/reschedule')
+  reschedule(@Param('id') id: string, @Body() dto: RescheduleDto) {
+    return this.booking.reschedule(id, dto);
+  }
+
+  @Post('consultations/:id/cancel')
+  cancel(@Param('id') id: string) {
+    return this.booking.cancel(id);
+  }
+}

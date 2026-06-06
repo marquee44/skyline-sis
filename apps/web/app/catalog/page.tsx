@@ -67,6 +67,7 @@ export default function CatalogPage() {
         <h1 className="text-2xl font-bold">Catalog admin</h1>
         <nav className="flex gap-4 text-sm text-slate-500">
           <a href="/applicants" className="hover:underline">Applicants</a>
+          <a href="/advisors" className="hover:underline">Advisors</a>
           <button onClick={logout} className="hover:underline">Sign out</button>
         </nav>
       </header>

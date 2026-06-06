@@ -6,6 +6,9 @@ import { JobsModule } from './jobs/jobs.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ApplicantsModule } from './applicants/applicants.module';
+import { AdvisorsModule } from './advisors/advisors.module';
+import { BookingModule } from './booking/booking.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
@@ -18,8 +21,11 @@ import { ApplicantsModule } from './applicants/applicants.module';
     HealthModule,
     JobsModule,
     AuthModule,
+    EmailModule,
     CatalogModule,
     ApplicantsModule,
+    AdvisorsModule,
+    BookingModule,
   ],
 })
 export class AppModule {}

@@ -140,3 +140,39 @@ export interface StageTransition {
   byUserId: string | null;
   createdAt: string;
 }
+
+export interface AvailabilityRule {
+  id: string;
+  advisorId: string;
+  weekday: number; // 0=Sun … 6=Sat
+  startTime: string;
+  endTime: string;
+  slotMinutes: number;
+  timezone: string;
+}
+
+export interface Advisor {
+  id: string;
+  name: string;
+  email: string;
+  active: boolean;
+  availabilityRules: AvailabilityRule[];
+}
+
+export interface Slot {
+  startUtc: string;
+  endUtc: string;
+}
+
+export interface Consultation {
+  id: string;
+  applicantId: string;
+  advisorId: string;
+  scheduledStartUtc: string;
+  scheduledEndUtc: string;
+  studentTimezone: string;
+  status: 'booked' | 'completed' | 'cancelled' | 'no_show';
+  zoomJoinUrl: string | null;
+  advisor?: { id: string; name: string };
+  applicant?: { id: string; firstName: string; lastName: string; email: string };
+}

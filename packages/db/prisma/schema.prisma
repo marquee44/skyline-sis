@@ -320,9 +320,12 @@ model Consultation {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  // Atomic reservation: no two non-cancelled bookings can share an advisor+slot.
-  // (Enforced at the DB; cancellations free the slot — handled in app logic.)
-  @@unique([advisorId, scheduledStartUtc])
+  // Atomic reservation is enforced by a PARTIAL unique index (added in a manual
+  // migration): unique on (advisor_id, scheduled_start_utc) WHERE status IN
+  // ('booked','completed'). A cancelled / no-show booking keeps its row for the
+  // record but frees the slot for rebooking. Prisma can't express partial unique
+  // indexes, so this is a plain index here + raw SQL in the migration.
+  @@index([advisorId, scheduledStartUtc])
   @@index([applicantId])
   @@map("consultations")
 }
