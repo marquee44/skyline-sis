@@ -93,6 +93,27 @@ export interface Course {
   program?: { id: string; name: string };
 }
 
+export interface MoodleCategory {
+  id: number;
+  name: string;
+  parent: number;
+  coursecount?: number;
+}
+
+export interface MoodleCourse {
+  id: number;
+  fullname: string;
+  shortname: string;
+  categoryid: number;
+}
+
+export interface ImportSummary {
+  universities: number;
+  programs: number;
+  courses: number;
+  skipped: string[];
+}
+
 export interface AuthUser {
   id: string;
   email: string;

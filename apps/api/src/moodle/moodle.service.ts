@@ -6,6 +6,20 @@ interface MoodleUser {
   username?: string;
 }
 
+export interface MoodleCategory {
+  id: number;
+  name: string;
+  parent: number; // 0 = top-level
+  coursecount?: number;
+}
+
+export interface MoodleCourse {
+  id: number;
+  fullname: string;
+  shortname: string;
+  categoryid: number;
+}
+
 /**
  * Moodle Web Services REST client (spec section 12). One direction for
  * provisioning: SIS → Moodle. Token is a secret env var; the SIS calls Moodle,
@@ -83,6 +97,18 @@ export class MoodleService {
       'enrolments[0][userid]': moodleUserId,
       'enrolments[0][courseid]': moodleCourseId,
     });
+  }
+
+  // ── Catalog browse (for import + mapping) ───────────────────────────────────
+  async getCategories(): Promise<MoodleCategory[]> {
+    const cats = await this.call<MoodleCategory[]>('core_course_get_categories', {});
+    return Array.isArray(cats) ? cats : [];
+  }
+
+  async getCourses(): Promise<MoodleCourse[]> {
+    const courses = await this.call<MoodleCourse[]>('core_course_get_courses', {});
+    // id 1 is Moodle's site (front page) "course" — never a real course.
+    return Array.isArray(courses) ? courses.filter((c) => c.id !== 1) : [];
   }
 
   // ── Read-back (increment 14, read-only) ─────────────────────────────────────

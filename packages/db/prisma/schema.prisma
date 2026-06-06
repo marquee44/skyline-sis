@@ -176,6 +176,8 @@ model University {
   shortName String? @map("short_name")
   country   String  @default("RS")
   notes     String?
+  // Moodle top-level category this was imported from (null = SIS-authored).
+  moodleCategoryId Int? @unique @map("moodle_category_id")
 
   programs Program[]
   forwards Forward[]
@@ -198,6 +200,8 @@ model Program {
   tuitionTotal   Decimal      @map("tuition_total") @db.Decimal(12, 2)
   tuitionCurrency String      @default("AED") @map("tuition_currency")
   active         Boolean      @default(true)
+  // Moodle sub-category this was imported from (null = SIS-authored).
+  moodleCategoryId Int?       @unique @map("moodle_category_id")
 
   courses        Course[]
   proposedBy     Applicant[]  @relation("ProposedProgram")

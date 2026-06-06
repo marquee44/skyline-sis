@@ -11,6 +11,8 @@ import {
   type Program,
   type Course,
   type ProgramLevel,
+  type MoodleCourse,
+  type ImportSummary,
 } from '@/lib/api';
 
 const LEVELS: ProgramLevel[] = ['BA', 'MA', 'MBA', 'PhD', 'professional'];
@@ -73,10 +75,80 @@ export default function CatalogPage() {
       </header>
       {error && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
+      <MoodlePanel onChange={reload} setError={setError} />
       <Universities unis={unis} onChange={reload} setError={setError} />
       <Programs programs={programs} unis={unis} onChange={reload} setError={setError} />
       <Courses courses={courses} programs={programs} onChange={reload} setError={setError} />
     </main>
+  );
+}
+
+function MoodlePanel({ onChange, setError }: { onChange: () => void; setError: SetErr }) {
+  const [moodleCourses, setMoodleCourses] = useState<MoodleCourse[] | null>(null);
+  const [summary, setSummary] = useState<ImportSummary | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  async function run(fn: () => Promise<void>) {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await fn();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed';
+      // 503 = Moodle not configured yet
+      setNotice(msg.includes('not configured') || msg.includes('503') ? 'Moodle is not configured yet — add MOODLE_BASE_URL/MOODLE_WS_TOKEN.' : msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section title="Moodle">
+      <p className="text-sm text-slate-500">
+        Pull your catalog from the central Moodle. Import maps categories → universities/programs
+        and courses → courses (with Moodle IDs), so enrollment can place students automatically.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          className={btnCls}
+          disabled={busy}
+          onClick={() => run(async () => {
+            const s = await api.post<ImportSummary>('/moodle/import', {});
+            setSummary(s);
+            onChange();
+          })}
+        >
+          {busy ? 'Working…' : 'Import from Moodle'}
+        </button>
+        <button
+          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 dark:border-slate-700"
+          disabled={busy}
+          onClick={() => run(async () => setMoodleCourses(await api.get<MoodleCourse[]>('/moodle/courses')))}
+        >
+          Browse Moodle courses
+        </button>
+      </div>
+
+      {notice && <p className="rounded-md bg-amber-100 px-3 py-2 text-sm text-amber-800">{notice}</p>}
+      {summary && (
+        <p className="text-sm text-emerald-700">
+          Imported {summary.universities} universities, {summary.programs} programs, {summary.courses} courses
+          {summary.skipped.length ? ` · ${summary.skipped.length} skipped` : ''}.
+        </p>
+      )}
+      {moodleCourses && (
+        <ul className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2 text-sm dark:border-slate-800">
+          {moodleCourses.map((c) => (
+            <li key={c.id} className="text-slate-600 dark:text-slate-300">
+              <span className="text-slate-400">#{c.id}</span> {c.fullname}{' '}
+              <span className="text-slate-400">({c.shortname})</span>
+            </li>
+          ))}
+          {moodleCourses.length === 0 && <li className="text-slate-400">No courses returned.</li>}
+        </ul>
+      )}
+    </Section>
   );
 }
 
