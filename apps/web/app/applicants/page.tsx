@@ -84,6 +84,7 @@ export default function ApplicantsPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Applicants ({applicants.length})</h1>
         <nav className="flex gap-4 text-sm text-slate-500">
+          <a href="/pipeline" className="hover:underline">Pipeline</a>
           <a href="/advisors" className="hover:underline">Advisors</a>
           <a href="/catalog" className="hover:underline">Catalog</a>
           <button onClick={() => { setToken(null); router.push('/login'); }} className="hover:underline">
@@ -107,6 +108,7 @@ export default function ApplicantsPage() {
                   {a.firstName} {a.lastName}
                 </button>
                 <span className="ml-2 text-sm text-slate-400">{a.email}</span>
+                <a href={`/applicants/${a.id}`} className="ml-2 text-xs text-sky-600 hover:underline">open →</a>
               </div>
               <div className="flex items-center gap-2">
                 <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${stageColor(a.stage)}`}>

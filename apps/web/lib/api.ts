@@ -164,6 +164,44 @@ export interface Slot {
   endUtc: string;
 }
 
+export interface ApplicantDetail extends Applicant {
+  programChoiceStatus: 'none' | 'proposed' | 'approved' | 'rejected' | 'confirmed';
+  proposedProgram?: { id: string; name: string } | null;
+  chosenProgram?: { id: string; name: string } | null;
+  choiceAdvisorNote?: string | null;
+  moodleUserId?: number | null;
+  stageTransitions?: StageTransition[];
+}
+
+export interface DocumentRec {
+  id: string;
+  applicantId: string;
+  type: string;
+  status: 'required' | 'uploaded' | 'verified' | 'rejected';
+  filePath: string | null;
+  notes: string | null;
+}
+
+export interface Invoice {
+  id: string;
+  applicantId: string;
+  programId: string;
+  amountTotal: string;
+  currency: string;
+  status: 'draft' | 'issued' | 'partially_paid' | 'paid' | 'cancelled';
+  issuedAt: string | null;
+  payments?: { id: string; amount: string; method: string; receivedAt: string }[];
+  program?: { id: string; name: string };
+}
+
+export interface Balance {
+  currency: string;
+  invoiced: string;
+  paid: string;
+  outstanding: string;
+  forwardedCount: number;
+}
+
 export interface Consultation {
   id: string;
   applicantId: string;

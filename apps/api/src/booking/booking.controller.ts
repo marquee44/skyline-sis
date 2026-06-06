@@ -14,6 +14,7 @@ import { JwtAuthGuard, RolesGuard } from '../auth/guards';
 import { Roles } from '../auth/roles';
 import { BookingService } from './booking.service';
 import { CreateBookingDto, RescheduleDto, SlotsQueryDto } from './dto';
+import { ConsultationRecordDto } from './record.dto';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('staff', 'admin')
@@ -54,5 +55,21 @@ export class BookingController {
   @Post('consultations/:id/cancel')
   cancel(@Param('id') id: string) {
     return this.booking.cancel(id);
+  }
+
+  // Advisor prep view (intake answers + any record).
+  @Get('consultations/:id/prep')
+  prep(@Param('id') id: string) {
+    return this.booking.prep(id);
+  }
+
+  // Save the structured consultation outcome → marks completed + advances stage.
+  @Post('consultations/:id/record')
+  saveRecord(
+    @Param('id') id: string,
+    @Body() dto: ConsultationRecordDto,
+    @Req() req: { user?: { id: string } },
+  ) {
+    return this.booking.saveRecord(id, dto, req.user?.id);
   }
 }

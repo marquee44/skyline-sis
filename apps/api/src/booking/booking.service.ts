@@ -193,10 +193,84 @@ export class BookingService {
   async get(id: string) {
     const c = await this.prisma.consultation.findUnique({
       where: { id },
-      include: { advisor: true, applicant: true },
+      include: { advisor: true, applicant: true, record: true },
     });
     if (!c) throw new NotFoundException('Consultation not found');
     return c;
+  }
+
+  // Advisor prep view (spec section 6 "Before"): the intake answers to read
+  // before the call, plus any record already started.
+  async prep(id: string) {
+    const c = await this.prisma.consultation.findUnique({
+      where: { id },
+      include: {
+        advisor: { select: { id: true, name: true } },
+        applicant: true,
+        record: true,
+      },
+    });
+    if (!c) throw new NotFoundException('Consultation not found');
+    return {
+      consultation: { id: c.id, scheduledStartUtc: c.scheduledStartUtc, status: c.status },
+      advisor: c.advisor,
+      intake: {
+        name: `${c.applicant.firstName} ${c.applicant.lastName}`,
+        email: c.applicant.email,
+        countryOfOrigin: c.applicant.countryOfOrigin,
+        residenceCity: c.applicant.residenceCity,
+        priorEducation: c.applicant.priorEducation,
+        interests: c.applicant.interests,
+      },
+      record: c.record,
+    };
+  }
+
+  /**
+   * Save the structured consultation outcome (spec section 6 "After"). Upserts
+   * the record, marks the consultation completed, and advances the applicant to
+   * consultation_completed.
+   */
+  async saveRecord(
+    id: string,
+    dto: import('./record.dto').ConsultationRecordDto,
+    byUserId?: string,
+  ) {
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id },
+      include: { applicant: true },
+    });
+    if (!consultation) throw new NotFoundException('Consultation not found');
+
+    if (dto.recommendedProgramId) {
+      const prog = await this.prisma.program.findUnique({ where: { id: dto.recommendedProgramId } });
+      if (!prog) throw new BadRequestException('recommendedProgramId does not exist');
+    }
+
+    const record = await this.prisma.consultationRecord.upsert({
+      where: { consultationId: id },
+      update: { ...dto },
+      create: { consultationId: id, ...dto },
+    });
+
+    if (consultation.status !== ConsultationStatus.completed) {
+      await this.prisma.consultation.update({
+        where: { id },
+        data: { status: ConsultationStatus.completed },
+      });
+    }
+    if (consultation.applicant.stage === ApplicantStage.consultation_booked) {
+      try {
+        await this.applicants.transition(
+          consultation.applicantId,
+          ApplicantStage.consultation_completed,
+          { note: 'consultation record saved', byUserId },
+        );
+      } catch (e) {
+        this.logger.warn(`Stage transition after record failed: ${(e as Error).message}`);
+      }
+    }
+    return record;
   }
 
   private async sendConfirmation(consultationId: string, verb = 'confirmed') {

@@ -11,6 +11,11 @@ import { BookingModule } from './booking/booking.module';
 import { EmailModule } from './email/email.module';
 import { ZoomModule } from './zoom/zoom.module';
 import { IntakeModule } from './intake/intake.module';
+import { StorageModule } from './storage/storage.module';
+import { ProgramSelectionModule } from './program-selection/program-selection.module';
+import { DocumentsModule } from './documents/documents.module';
+import { FinanceModule } from './finance/finance.module';
+import { MoodleModule } from './moodle/moodle.module';
 
 @Module({
   imports: [
@@ -25,11 +30,16 @@ import { IntakeModule } from './intake/intake.module';
     AuthModule,
     EmailModule,
     ZoomModule,
+    StorageModule,
     CatalogModule,
     ApplicantsModule,
     AdvisorsModule,
     BookingModule,
     IntakeModule,
+    ProgramSelectionModule,
+    DocumentsModule,
+    FinanceModule,
+    MoodleModule,
   ],
 })
 export class AppModule {}

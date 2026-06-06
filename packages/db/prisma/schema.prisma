@@ -221,11 +221,40 @@ model Course {
   moodleCourseId Int?    @map("moodle_course_id")
   sequence       Int     @default(0)
 
+  enrollments    CourseEnrollment[]
+
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([programId])
   @@map("courses")
+}
+
+enum EnrollmentStatus {
+  pending
+  enrolled
+  failed
+}
+
+// Per-(applicant, course) Moodle enrollment record so provisioning is idempotent
+// and resumable: a job that dies after enrolling 3 of 5 courses re-runs and only
+// completes the remaining 2. (Resolves the partial-enrollment risk from review.)
+model CourseEnrollment {
+  id          String           @id @default(uuid())
+  applicantId String           @map("applicant_id")
+  applicant   Applicant        @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  courseId    String           @map("course_id")
+  course      Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  status      EnrollmentStatus @default(pending)
+  error       String?
+  enrolledAt  DateTime?        @map("enrolled_at") @db.Timestamptz(6)
+
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([applicantId, courseId])
+  @@map("course_enrollments")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -269,6 +298,7 @@ model Applicant {
   forwards         Forward[]
   user             User?
   stageTransitions StageTransition[]
+  courseEnrollments CourseEnrollment[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
