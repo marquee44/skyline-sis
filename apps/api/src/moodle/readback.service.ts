@@ -28,17 +28,30 @@ export class MoodleReadbackService {
 
   async progress(applicantId: string) {
     const { applicant, courses } = await this.resolve(applicantId);
+    // Grades and completion are fetched independently — a course with completion
+    // tracking disabled still returns its grades (and vice-versa).
+    const settle = async <T>(p: Promise<T>): Promise<{ data?: T; error?: string }> => {
+      try {
+        return { data: await p };
+      } catch (e) {
+        return { error: (e as Error).message };
+      }
+    };
     const perCourse = await Promise.all(
       courses.map(async (c) => {
-        try {
-          const [completion, grades] = await Promise.all([
-            this.moodle.courseCompletion(applicant.moodleUserId!, c.moodleCourseId!),
-            this.moodle.gradeItems(applicant.moodleUserId!, c.moodleCourseId!),
-          ]);
-          return { courseId: c.id, name: c.name, moodleCourseId: c.moodleCourseId, completion, grades };
-        } catch (e) {
-          return { courseId: c.id, name: c.name, moodleCourseId: c.moodleCourseId, error: (e as Error).message };
-        }
+        const [completion, grades] = await Promise.all([
+          settle(this.moodle.courseCompletion(applicant.moodleUserId!, c.moodleCourseId!)),
+          settle(this.moodle.gradeItems(applicant.moodleUserId!, c.moodleCourseId!)),
+        ]);
+        return {
+          courseId: c.id,
+          name: c.name,
+          moodleCourseId: c.moodleCourseId,
+          completion: completion.data ?? null,
+          completionError: completion.error,
+          grades: grades.data ?? null,
+          gradesError: grades.error,
+        };
       }),
     );
     return { applicantId, moodleUserId: applicant.moodleUserId, courses: perCourse };
