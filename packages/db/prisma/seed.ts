@@ -1,6 +1,8 @@
 // Catalog seed (spec section 13): the five partner faculties + a starter program
 // each. Program names/levels are placeholders to confirm while building.
-import { PrismaClient, ProgramLevel } from '@prisma/client';
+import 'dotenv/config'; // loads packages/db/.env (symlink → repo-root .env)
+import { PrismaClient, ProgramLevel, UserRole } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -59,6 +61,17 @@ async function main() {
   }
 
   console.log(`Seeded ${FACULTIES.length} faculties + starter programs.`);
+
+  // Seed an initial admin (staff) user so the guarded admin can be used.
+  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@skyline-as.ae';
+  const adminPassword = process.env.ADMIN_PASSWORD ?? 'ChangeMe!2026';
+  const passwordHash = await bcrypt.hash(adminPassword, 10);
+  await prisma.user.upsert({
+    where: { email: adminEmail },
+    update: { role: UserRole.admin },
+    create: { email: adminEmail, passwordHash, role: UserRole.admin },
+  });
+  console.log(`Seeded admin user: ${adminEmail}`);
 }
 
 main()

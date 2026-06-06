@@ -48,9 +48,18 @@ export default async function Home() {
         </ul>
       </section>
 
+      <div>
+        <a
+          href="/login"
+          className="inline-block rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
+        >
+          Staff sign in →
+        </a>
+      </div>
+
       <footer className="text-xs text-slate-400">
-        Increment 1 — scaffold. Next: catalog admin, applicants &amp; the stage
-        state machine.
+        Increment 2 — catalog admin. Next: applicants &amp; the stage state
+        machine.
       </footer>
     </main>
   );
