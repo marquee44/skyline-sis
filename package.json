@@ -1,0 +1,28 @@
+{
+  "name": "skyline-sis",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Skyline SIS — admissions + enrollment pipeline (monorepo root)",
+  "packageManager": "pnpm@11.4.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @skyline/db migrate:dev",
+    "db:generate": "pnpm --filter @skyline/db generate",
+    "db:studio": "pnpm --filter @skyline/db studio",
+    "dev": "pnpm --parallel --filter ./apps/* dev",
+    "dev:api": "pnpm --filter @skyline/api dev",
+    "dev:web": "pnpm --filter @skyline/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
+}

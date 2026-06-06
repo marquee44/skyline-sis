@@ -1,0 +1,414 @@
+// Skyline SIS — Prisma schema (spec section 8, "Data model").
+// Conventions: camelCase fields mapped to snake_case columns; snake_case table
+// names via @@map. Money is Decimal(12,2) (never float). Timestamps are
+// timestamptz; the booking/consultation domain stores UTC instants explicitly.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum ProgramLevel {
+  BA
+  MA
+  MBA
+  PhD
+  professional
+}
+
+enum ProgramChoiceStatus {
+  none
+  proposed
+  approved
+  rejected
+  confirmed
+}
+
+// Pipeline stages (spec section 9). Single state machine on the applicant.
+enum ApplicantStage {
+  intake_started
+  consultation_booked
+  consultation_completed
+  program_proposed
+  program_approved
+  program_confirmed
+  documents_pending
+  documents_verified
+  invoice_issued
+  payment_received
+  enrolled
+  active_student
+  graduated
+  withdrawn
+  rejected
+}
+
+enum ConsultationStatus {
+  booked
+  completed
+  cancelled
+  no_show
+}
+
+enum Eligibility {
+  eligible
+  needs_review
+  not_eligible
+}
+
+enum DocumentType {
+  passport
+  emirates_id
+  prior_diploma
+  transcript
+  photo
+  legalization
+  other
+}
+
+enum DocumentStatus {
+  required
+  uploaded
+  verified
+  rejected
+}
+
+enum InvoiceStatus {
+  draft
+  issued
+  partially_paid
+  paid
+  cancelled
+}
+
+enum PaymentMethod {
+  bank_transfer
+  card
+  cash
+  other
+}
+
+// Auth: who logs into the SIS. Students see their own portal; staff (advisors/
+// admins) see the admin. Teachers are NOT SIS users (Moodle only).
+enum UserRole {
+  student
+  staff
+  admin
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auth
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(student)
+
+  // A student user is linked to their applicant record; staff users to an advisor.
+  applicantId  String?  @unique @map("applicant_id")
+  applicant    Applicant? @relation(fields: [applicantId], references: [id])
+  advisorId    String?  @unique @map("advisor_id")
+  advisor      Advisor?   @relation(fields: [advisorId], references: [id])
+
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Advisors & availability
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Advisor {
+  id     String  @id @default(uuid())
+  name   String
+  email  String  @unique
+  active Boolean @default(true)
+
+  availabilityRules AvailabilityRule[]
+  applicants        Applicant[]
+  consultations     Consultation[]
+  user              User?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("advisors")
+}
+
+model AvailabilityRule {
+  id          String  @id @default(uuid())
+  advisorId   String  @map("advisor_id")
+  advisor     Advisor @relation(fields: [advisorId], references: [id], onDelete: Cascade)
+
+  // 0=Sunday .. 6=Saturday. Times as "HH:mm" in the rule's IANA timezone.
+  weekday     Int
+  startTime   String  @map("start_time")
+  endTime     String  @map("end_time")
+  slotMinutes Int     @map("slot_minutes")
+  timezone    String  // IANA name, e.g. "Asia/Dubai" (NOT a numeric offset)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([advisorId, weekday])
+  @@map("availability_rules")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Catalog: universities → programs → courses
+// ─────────────────────────────────────────────────────────────────────────────
+
+model University {
+  id        String  @id @default(uuid())
+  name      String
+  shortName String? @map("short_name")
+  country   String  @default("RS")
+  notes     String?
+
+  programs Program[]
+  forwards Forward[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("universities")
+}
+
+model Program {
+  id             String       @id @default(uuid())
+  universityId   String       @map("university_id")
+  university     University   @relation(fields: [universityId], references: [id])
+
+  name           String
+  level          ProgramLevel
+  ects           Int?
+  durationMonths Int?         @map("duration_months")
+  tuitionTotal   Decimal      @map("tuition_total") @db.Decimal(12, 2)
+  tuitionCurrency String      @default("AED") @map("tuition_currency")
+  active         Boolean      @default(true)
+
+  courses        Course[]
+  proposedBy     Applicant[]  @relation("ProposedProgram")
+  chosenBy       Applicant[]  @relation("ChosenProgram")
+  recommendedIn  ConsultationRecord[]
+  invoices       Invoice[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([universityId])
+  @@map("programs")
+}
+
+model Course {
+  id             String  @id @default(uuid())
+  programId      String  @map("program_id")
+  program        Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  name           String
+  moodleCourseId Int?    @map("moodle_course_id")
+  sequence       Int     @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([programId])
+  @@map("courses")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Applicants — the spine of the pipeline
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Applicant {
+  id              String  @id @default(uuid())
+  firstName       String  @map("first_name")
+  lastName        String  @map("last_name")
+  email           String  @unique
+  phone           String?
+
+  countryOfOrigin String? @map("country_of_origin")
+  residenceCity   String? @map("residence_city")
+  priorEducation  String? @map("prior_education")
+  interests       String? // captured by the intake bot
+
+  stage           ApplicantStage @default(intake_started)
+
+  assignedAdvisorId String?  @map("assigned_advisor_id")
+  assignedAdvisor   Advisor? @relation(fields: [assignedAdvisorId], references: [id])
+
+  // Program selection (propose → approve → confirm). program_choice_status is the
+  // source of truth; `stage` mirrors it. See spec sections 7 & 9.
+  programChoiceStatus ProgramChoiceStatus @default(none) @map("program_choice_status")
+  proposedProgramId   String?  @map("proposed_program_id")
+  proposedProgram     Program? @relation("ProposedProgram", fields: [proposedProgramId], references: [id])
+  chosenProgramId     String?  @map("chosen_program_id")
+  chosenProgram       Program? @relation("ChosenProgram", fields: [chosenProgramId], references: [id])
+  proposedAt          DateTime? @map("proposed_at") @db.Timestamptz(6)
+  approvedAt          DateTime? @map("approved_at") @db.Timestamptz(6)
+  confirmedAt         DateTime? @map("confirmed_at") @db.Timestamptz(6)
+  choiceAdvisorNote   String?   @map("choice_advisor_note")
+
+  moodleUserId    Int?    @map("moodle_user_id")
+
+  consultations Consultation[]
+  documents     Document[]
+  invoices      Invoice[]
+  forwards      Forward[]
+  user          User?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([stage])
+  @@index([assignedAdvisorId])
+  @@map("applicants")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Booking & consultation
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Consultation {
+  id                String    @id @default(uuid())
+  applicantId       String    @map("applicant_id")
+  applicant         Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  advisorId         String    @map("advisor_id")
+  advisor           Advisor   @relation(fields: [advisorId], references: [id])
+
+  scheduledStartUtc DateTime  @map("scheduled_start_utc") @db.Timestamptz(6)
+  scheduledEndUtc   DateTime  @map("scheduled_end_utc") @db.Timestamptz(6)
+  studentTimezone   String    @map("student_timezone") // IANA name
+
+  status            ConsultationStatus @default(booked)
+  zoomJoinUrl       String?   @map("zoom_join_url")
+  reminderSentAt    DateTime? @map("reminder_sent_at") @db.Timestamptz(6)
+
+  record ConsultationRecord?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Atomic reservation: no two non-cancelled bookings can share an advisor+slot.
+  // (Enforced at the DB; cancellations free the slot — handled in app logic.)
+  @@unique([advisorId, scheduledStartUtc])
+  @@index([applicantId])
+  @@map("consultations")
+}
+
+model ConsultationRecord {
+  id                   String       @id @default(uuid())
+  consultationId       String       @unique @map("consultation_id")
+  consultation         Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  goal                 String?
+  priorEducationLevel  String?      @map("prior_education_level")
+  priorEducationField  String?      @map("prior_education_field")
+  yearsExperience      Int?         @map("years_experience")
+  fitProgramArea       String?      @map("fit_program_area")
+  eligibility          Eligibility?
+  recommendedProgramId String?      @map("recommended_program_id")
+  recommendedProgram   Program?     @relation(fields: [recommendedProgramId], references: [id])
+  recommendedLevel     String?      @map("recommended_level")
+  notes                String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("consultation_records")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Documents (collected AFTER the consultation; stored outside web root)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Document {
+  id          String         @id @default(uuid())
+  applicantId String         @map("applicant_id")
+  applicant   Applicant      @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  type        DocumentType
+  status      DocumentStatus @default(required)
+  filePath    String?        @map("file_path") // path within STORAGE_DIR, never public
+  notes       String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([applicantId])
+  @@map("documents")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Finance: invoices, payments (money IN), forwards (money OUT)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Invoice {
+  id          String        @id @default(uuid())
+  applicantId String        @map("applicant_id")
+  applicant   Applicant     @relation(fields: [applicantId], references: [id])
+  programId   String        @map("program_id")
+  program     Program       @relation(fields: [programId], references: [id])
+
+  amountTotal Decimal       @map("amount_total") @db.Decimal(12, 2)
+  currency    String        @default("AED")
+  status      InvoiceStatus @default(draft)
+  issuedAt    DateTime?     @map("issued_at") @db.Timestamptz(6)
+  dueAt       DateTime?     @map("due_at") @db.Timestamptz(6)
+
+  payments Payment[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([applicantId])
+  @@map("invoices")
+}
+
+model Payment {
+  id         String        @id @default(uuid())
+  invoiceId  String        @map("invoice_id")
+  invoice    Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  amount     Decimal       @db.Decimal(12, 2)
+  method     PaymentMethod
+  receivedAt DateTime      @default(now()) @map("received_at") @db.Timestamptz(6)
+  reference  String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([invoiceId])
+  @@map("payments")
+}
+
+model Forward {
+  id           String     @id @default(uuid())
+  universityId String     @map("university_id")
+  university   University @relation(fields: [universityId], references: [id])
+  applicantId  String     @map("applicant_id")
+  applicant    Applicant  @relation(fields: [applicantId], references: [id])
+
+  amount       Decimal    @db.Decimal(12, 2)
+  currency     String     @default("RSD") // may differ from the invoice (e.g. RSD/EUR)
+  forwardedAt  DateTime   @default(now()) @map("forwarded_at") @db.Timestamptz(6)
+  reference    String?
+  notes        String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([universityId])
+  @@index([applicantId])
+  @@map("forwards")
+}

@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.next/
+out/
+build/
+
+# env / secrets
+.env
+.env.local
+*.local
+
+# prisma
+packages/db/prisma/*.db
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# storage (documents live outside web root; never commit)
+storage/
+uploads/
+
+# os
+.DS_Store
