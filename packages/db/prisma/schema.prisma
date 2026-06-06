@@ -263,11 +263,12 @@ model Applicant {
 
   moodleUserId    Int?    @map("moodle_user_id")
 
-  consultations Consultation[]
-  documents     Document[]
-  invoices      Invoice[]
-  forwards      Forward[]
-  user          User?
+  consultations    Consultation[]
+  documents        Document[]
+  invoices         Invoice[]
+  forwards         Forward[]
+  user             User?
+  stageTransitions StageTransition[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -275,6 +276,24 @@ model Applicant {
   @@index([stage])
   @@index([assignedAdvisorId])
   @@map("applicants")
+}
+
+// Append-only audit of every stage change: who moved an applicant from where to
+// where, when, and why. The spine of the pipeline gets a paper trail from day one.
+model StageTransition {
+  id          String         @id @default(uuid())
+  applicantId String         @map("applicant_id")
+  applicant   Applicant      @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  fromStage   ApplicantStage? @map("from_stage")
+  toStage     ApplicantStage  @map("to_stage")
+  note        String?
+  byUserId    String?        @map("by_user_id") // null = system/automated
+
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([applicantId, createdAt])
+  @@map("stage_transitions")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

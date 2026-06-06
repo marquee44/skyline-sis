@@ -98,3 +98,45 @@ export interface AuthUser {
   email: string;
   role: 'student' | 'staff' | 'admin';
 }
+
+export type ApplicantStage =
+  | 'intake_started'
+  | 'consultation_booked'
+  | 'consultation_completed'
+  | 'program_proposed'
+  | 'program_approved'
+  | 'program_confirmed'
+  | 'documents_pending'
+  | 'documents_verified'
+  | 'invoice_issued'
+  | 'payment_received'
+  | 'enrolled'
+  | 'active_student'
+  | 'graduated'
+  | 'withdrawn'
+  | 'rejected';
+
+export interface Applicant {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  countryOfOrigin: string | null;
+  residenceCity: string | null;
+  interests: string | null;
+  stage: ApplicantStage;
+  programChoiceStatus: string;
+  assignedAdvisor?: { id: string; name: string } | null;
+  allowedNextStages: ApplicantStage[];
+  createdAt: string;
+}
+
+export interface StageTransition {
+  id: string;
+  fromStage: ApplicantStage | null;
+  toStage: ApplicantStage;
+  note: string | null;
+  byUserId: string | null;
+  createdAt: string;
+}

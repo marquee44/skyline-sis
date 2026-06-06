@@ -65,9 +65,10 @@ export default function CatalogPage() {
     <main className="mx-auto max-w-5xl space-y-10 px-6 py-10">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Catalog admin</h1>
-        <button onClick={logout} className="text-sm text-slate-500 hover:underline">
-          Sign out
-        </button>
+        <nav className="flex gap-4 text-sm text-slate-500">
+          <a href="/applicants" className="hover:underline">Applicants</a>
+          <button onClick={logout} className="hover:underline">Sign out</button>
+        </nav>
       </header>
       {error && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p>}
 
