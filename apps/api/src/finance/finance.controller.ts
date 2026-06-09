@@ -10,6 +10,22 @@ import { CreateForwardDto, CreateInvoiceDto, CreatePaymentDto } from './dto';
 export class FinanceController {
   constructor(private readonly finance: FinanceService) {}
 
+  // Admin overview: all students, where they are + what they owe.
+  @Get('students/overview')
+  studentsOverview() {
+    return this.finance.studentsOverview();
+  }
+
+  // Per-term (per-semester) billing.
+  @Get('applicants/:id/terms')
+  applicantTerms(@Param('id') id: string) {
+    return this.finance.listApplicantTerms(id);
+  }
+  @Post('applicants/:id/terms/:termId/invoice')
+  invoiceTerm(@Param('id') id: string, @Param('termId') termId: string) {
+    return this.finance.invoiceTerm(id, termId);
+  }
+
   // Invoices
   @Get('invoices')
   listInvoices(@Query('applicantId') applicantId?: string) {

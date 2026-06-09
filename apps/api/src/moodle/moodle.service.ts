@@ -77,7 +77,10 @@ export class MoodleService {
     lastName: string;
     username?: string;
   }): Promise<number> {
-    const username = (input.username ?? input.email).toLowerCase();
+    // Moodle's default username charset is lowercase alphanumeric + ._-@. Email
+    // aliases like "name+tag@host" are valid emails but invalid usernames, so
+    // sanitize anything else to a dot (the email field keeps the original).
+    const username = (input.username ?? input.email).toLowerCase().replace(/[^a-z0-9._@-]/g, '.');
     const created = await this.call<MoodleUser[]>('core_user_create_users', {
       'users[0][username]': username,
       'users[0][email]': input.email,

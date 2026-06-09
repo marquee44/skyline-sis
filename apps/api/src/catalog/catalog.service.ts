@@ -7,6 +7,7 @@ import {
   CreateUniversityDto,
   UpdateCourseDto,
   UpdateProgramDto,
+  UpdateTermDto,
   UpdateUniversityDto,
 } from './dto';
 
@@ -144,5 +145,20 @@ export class CatalogService {
     const c = await this.prisma.course.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('Course not found');
     return this.prisma.course.delete({ where: { id } });
+  }
+
+  // ── Terms (semesters) ───────────────────────────────────────────────────────
+  listTerms(programId: string) {
+    return this.prisma.term.findMany({
+      where: { programId },
+      orderBy: { sequence: 'asc' },
+      include: { _count: { select: { courses: true } } },
+    });
+  }
+
+  async updateTerm(id: string, dto: UpdateTermDto) {
+    const t = await this.prisma.term.findUnique({ where: { id } });
+    if (!t) throw new NotFoundException('Term not found');
+    return this.prisma.term.update({ where: { id }, data: dto });
   }
 }

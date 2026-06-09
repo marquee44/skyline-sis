@@ -47,6 +47,14 @@ export class BookingController {
     return this.booking.book(dto, req.user?.id);
   }
 
+  // TEST-ONLY (admin): fabricate a completed consultation so an admin can drive
+  // the pipeline without an advisor/booking. Advances stage → consultation_completed.
+  @Post('applicants/:id/test-consultation')
+  @Roles('admin')
+  testConsultation(@Param('id') id: string, @Req() req: { user?: { id: string } }) {
+    return this.booking.testCompleteConsultation(id, req.user?.id);
+  }
+
   @Patch('consultations/:id/reschedule')
   reschedule(@Param('id') id: string, @Body() dto: RescheduleDto) {
     return this.booking.reschedule(id, dto);

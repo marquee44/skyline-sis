@@ -18,6 +18,7 @@ import {
   CreateUniversityDto,
   UpdateCourseDto,
   UpdateProgramDto,
+  UpdateTermDto,
   UpdateUniversityDto,
 } from './dto';
 
@@ -71,6 +72,16 @@ export class CatalogController {
   @Delete('programs/:id')
   removeProgram(@Param('id') id: string) {
     return this.catalog.removeProgram(id);
+  }
+
+  // Terms (semesters)
+  @Get('programs/:id/terms')
+  listTerms(@Param('id') id: string) {
+    return this.catalog.listTerms(id);
+  }
+  @Patch('terms/:id')
+  updateTerm(@Param('id') id: string, @Body() dto: UpdateTermDto) {
+    return this.catalog.updateTerm(id, dto);
   }
 
   // Courses

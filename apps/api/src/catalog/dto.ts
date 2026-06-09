@@ -90,6 +90,24 @@ export class UpdateProgramDto {
   active?: boolean;
 }
 
+// ── Terms (semesters) ───────────────────────────────────────────────────────
+export class UpdateTermDto {
+  @IsOptional() @IsString() @MinLength(1) @MaxLength(200)
+  name?: string;
+
+  @IsOptional() @IsInt() @Min(0)
+  sequence?: number;
+
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0)
+  tuitionTotal?: number;
+
+  @IsOptional() @IsString() @MaxLength(8)
+  tuitionCurrency?: string;
+
+  @IsOptional() @IsBoolean()
+  active?: boolean;
+}
+
 // ── Courses ─────────────────────────────────────────────────────────────────
 export class CreateCourseDto {
   @IsString()

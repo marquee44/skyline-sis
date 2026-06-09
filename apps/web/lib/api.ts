@@ -110,6 +110,7 @@ export interface MoodleCourse {
 export interface ImportSummary {
   universities: number;
   programs: number;
+  terms: number;
   courses: number;
   skipped: string[];
 }
@@ -118,6 +119,47 @@ export interface AuthUser {
   id: string;
   email: string;
   role: 'student' | 'staff' | 'admin';
+}
+
+export interface CatalogTerm {
+  id: string;
+  name: string;
+  sequence: number;
+  tuitionTotal: string;
+  tuitionCurrency: string;
+  active: boolean;
+  _count?: { courses: number };
+}
+
+export interface ApplicantTermRow {
+  termId: string;
+  name: string;
+  sequence: number;
+  fee: string;
+  currency: string;
+  courses: number;
+  status: 'pending' | 'invoiced' | 'paid' | 'enrolled' | string;
+  invoiceId: string | null;
+  invoiceStatus: string | null;
+  paid: string;
+}
+
+export interface StudentOverviewRow {
+  id: string;
+  name: string;
+  email: string;
+  stage: ApplicantStage;
+  programChoiceStatus: string;
+  program: string | null;
+  currency: string;
+  invoiced: string;
+  paid: string;
+  outstanding: string;
+  moodleUserId: number | null;
+  currentTerm: string | null;
+  currentTermStatus: 'pending' | 'invoiced' | 'paid' | 'enrolled' | null;
+  termsEnrolled: number;
+  termsTotal: number;
 }
 
 export type ApplicantStage =

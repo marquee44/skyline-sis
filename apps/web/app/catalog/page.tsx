@@ -13,6 +13,7 @@ import {
   type ProgramLevel,
   type MoodleCourse,
   type ImportSummary,
+  type CatalogTerm,
 } from '@/lib/api';
 
 const LEVELS: ProgramLevel[] = ['BA', 'MA', 'MBA', 'PhD', 'professional'];
@@ -133,7 +134,7 @@ function MoodlePanel({ onChange, setError }: { onChange: () => void; setError: S
       {notice && <p className="rounded-md bg-amber-100 px-3 py-2 text-sm text-amber-800">{notice}</p>}
       {summary && (
         <p className="text-sm text-emerald-700">
-          Imported {summary.universities} universities, {summary.programs} programs, {summary.courses} courses
+          Imported {summary.universities} universities, {summary.programs} programs, {summary.terms} terms, {summary.courses} courses
           {summary.skipped.length ? ` · ${summary.skipped.length} skipped` : ''}.
         </p>
       )}
@@ -238,6 +239,62 @@ function Universities({
   );
 }
 
+// Per-program semester fees editor (multi-semester billing). Lazy-loads the
+// program's terms; each term's per-semester fee is editable + savable.
+function TermsEditor({ programId, setError }: { programId: string; setError: SetErr }) {
+  const [terms, setTerms] = useState<CatalogTerm[] | null>(null);
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-1">
+      <button
+        className="text-xs text-sky-600 hover:underline"
+        onClick={() => {
+          const next = !open;
+          setOpen(next);
+          if (next && !terms) guarded(async () => setTerms(await api.get<CatalogTerm[]>(`/programs/${programId}/terms`)), setError);
+        }}
+      >
+        {open ? '▾ semesters & fees' : '▸ semesters & fees'}
+      </button>
+      {open && terms && (
+        <ul className="mt-1 space-y-1 border-l-2 border-slate-100 pl-3 dark:border-slate-800">
+          {terms.map((t) => (
+            <TermFeeRow key={t.id} term={t} setError={setError} />
+          ))}
+          {terms.length === 0 && <li className="text-xs text-slate-400">No semesters.</li>}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function TermFeeRow({ term, setError }: { term: CatalogTerm; setError: SetErr }) {
+  const [fee, setFee] = useState(String(term.tuitionTotal));
+  const [saved, setSaved] = useState(false);
+  return (
+    <li className="flex flex-wrap items-center gap-2 text-xs">
+      <span className="w-28 font-medium">{term.name}</span>
+      <span className="text-slate-400">{term._count?.courses ?? 0} courses</span>
+      <input
+        className={`${inputCls} w-24`}
+        type="number"
+        min="0"
+        step="0.01"
+        value={fee}
+        onChange={(e) => { setFee(e.target.value); setSaved(false); }}
+      />
+      <span className="text-slate-400">{term.tuitionCurrency}</span>
+      <button
+        className="text-sky-600 hover:underline"
+        onClick={() => guarded(async () => { await api.patch(`/terms/${term.id}`, { tuitionTotal: Number(fee) }); setSaved(true); }, setError)}
+      >
+        save
+      </button>
+      {saved && <span className="text-emerald-600">✓</span>}
+    </li>
+  );
+}
+
 function Programs({
   programs,
   unis,
@@ -258,26 +315,29 @@ function Programs({
     <Section title={`Programs (${programs.length})`}>
       <ul className="divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
         {programs.map((p) => (
-          <li key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
-            <span>
-              <strong>{p.name}</strong>{' '}
-              <span className="text-slate-400">
-                · {p.level} · {p.university?.shortName ?? p.university?.name} ·{' '}
-                {p.tuitionTotal} {p.tuitionCurrency} · {p._count?.courses ?? 0} courses
-                {!p.active && ' · inactive'}
+          <li key={p.id} className="px-3 py-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span>
+                <strong>{p.name}</strong>{' '}
+                <span className="text-slate-400">
+                  · {p.level} · {p.university?.shortName ?? p.university?.name} ·{' '}
+                  {p.tuitionTotal} {p.tuitionCurrency} · {p._count?.courses ?? 0} courses
+                  {!p.active && ' · inactive'}
+                </span>
               </span>
-            </span>
-            <button
-              onClick={() =>
-                guarded(async () => {
-                  await api.del(`/programs/${p.id}`);
-                  onChange();
-                }, setError)
-              }
-              className="text-xs text-rose-500 hover:underline"
-            >
-              delete
-            </button>
+              <button
+                onClick={() =>
+                  guarded(async () => {
+                    await api.del(`/programs/${p.id}`);
+                    onChange();
+                  }, setError)
+                }
+                className="text-xs text-rose-500 hover:underline"
+              >
+                delete
+              </button>
+            </div>
+            <TermsEditor programId={p.id} setError={setError} />
           </li>
         ))}
         {programs.length === 0 && <li className="px-3 py-2 text-sm text-slate-400">None yet.</li>}

@@ -204,6 +204,7 @@ model Program {
   moodleCategoryId Int?       @unique @map("moodle_category_id")
 
   courses        Course[]
+  terms          Term[]
   proposedBy     Applicant[]  @relation("ProposedProgram")
   chosenBy       Applicant[]  @relation("ChosenProgram")
   recommendedIn  ConsultationRecord[]
@@ -216,10 +217,42 @@ model Program {
   @@map("programs")
 }
 
+// A semester/term within a program. This is the level a student is invoiced and
+// enrolled at (multi-semester / multi-year). Courses hang off a term; the term
+// carries the fee. Added additively: Course.programId is retained during the
+// transition, with Course.termId populated by the reworked Moodle import.
+model Term {
+  id              String  @id @default(uuid())
+  programId       String  @map("program_id")
+  program         Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  name            String  // e.g. "I semestar"
+  sequence        Int     @default(0) // order within the program (1, 2, 3 …)
+  tuitionTotal    Decimal @default(0) @map("tuition_total") @db.Decimal(12, 2)
+  tuitionCurrency String  @default("AED") @map("tuition_currency")
+  active          Boolean @default(true)
+  // Moodle (semester) category this term was imported from.
+  moodleCategoryId Int?   @unique @map("moodle_category_id")
+
+  courses     Course[]
+  enrollments TermEnrollment[]
+  invoices    Invoice[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([programId])
+  @@map("terms")
+}
+
 model Course {
   id             String  @id @default(uuid())
   programId      String  @map("program_id")
   program        Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+  // Term the course belongs to. Nullable during the flat→term migration; the
+  // reworked import sets it, then it becomes the primary grouping.
+  termId         String? @map("term_id")
+  term           Term?   @relation(fields: [termId], references: [id], onDelete: Cascade)
 
   name           String
   moodleCourseId Int?    @map("moodle_course_id")
@@ -231,7 +264,36 @@ model Course {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([programId])
+  @@index([termId])
   @@map("courses")
+}
+
+enum TermEnrollmentStatus {
+  pending   // term not yet billed
+  invoiced  // invoice issued for the term
+  paid      // payment cleared the unlock threshold
+  enrolled  // student enrolled in the term's Moodle courses
+}
+
+// Per-(applicant, term) progress: the spine of the multi-semester lifecycle.
+// A student advances term by term — each term is invoiced, paid, then enrolled.
+model TermEnrollment {
+  id          String               @id @default(uuid())
+  applicantId String               @map("applicant_id")
+  applicant   Applicant            @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  termId      String               @map("term_id")
+  term        Term                 @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  status      TermEnrollmentStatus @default(pending)
+  invoiceId   String?              @map("invoice_id")
+  enrolledAt  DateTime?            @map("enrolled_at") @db.Timestamptz(6)
+
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime             @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([applicantId, termId])
+  @@index([termId])
+  @@map("term_enrollments")
 }
 
 enum EnrollmentStatus {
@@ -303,6 +365,7 @@ model Applicant {
   user             User?
   stageTransitions StageTransition[]
   courseEnrollments CourseEnrollment[]
+  termEnrollments   TermEnrollment[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -417,6 +480,10 @@ model Invoice {
   applicant   Applicant     @relation(fields: [applicantId], references: [id])
   programId   String        @map("program_id")
   program     Program       @relation(fields: [programId], references: [id])
+  // The term this invoice bills for (per-semester billing). Nullable during the
+  // flat→term migration; per-term invoicing sets it.
+  termId      String?       @map("term_id")
+  term        Term?         @relation(fields: [termId], references: [id])
 
   amountTotal Decimal       @map("amount_total") @db.Decimal(12, 2)
   currency    String        @default("AED")

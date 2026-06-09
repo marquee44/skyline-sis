@@ -15,6 +15,9 @@ import { isValidTimezone } from '../common/time';
 import { generateSlots, Slot } from './slots';
 import { CreateBookingDto, RescheduleDto } from './dto';
 
+// Hidden advisor used only by the admin test-consultation shortcut.
+const TESTING_ADVISOR_EMAIL = 'testing-advisor@skyline-as.ae';
+
 // A slot counts as "taken" only while it's a live booking; cancelled/no-show free it.
 const ACTIVE_STATUSES: ConsultationStatus[] = [
   ConsultationStatus.booked,
@@ -271,6 +274,61 @@ export class BookingService {
       }
     }
     return record;
+  }
+
+  /**
+   * TEST-ONLY (admin) shortcut: fabricate a completed consultation so a single
+   * admin can drive an applicant through the pipeline without setting up an
+   * advisor, availability and a real booking. A consultation requires an advisor
+   * FK, so we attach a hidden, inactive "Testing (admin)" advisor (created once
+   * and reused) — the operator never has to manage advisors. Skips slot /
+   * availability checks entirely; advances the applicant to consultation_completed.
+   */
+  async testCompleteConsultation(applicantId: string, byUserId?: string) {
+    const applicant = await this.prisma.applicant.findUnique({ where: { id: applicantId } });
+    if (!applicant) throw new NotFoundException('Applicant not found');
+    if (
+      applicant.stage !== ApplicantStage.intake_started &&
+      applicant.stage !== ApplicantStage.consultation_booked
+    ) {
+      throw new BadRequestException(
+        `Applicant is at stage "${applicant.stage}" — the test consultation only applies before consultation_completed`,
+      );
+    }
+
+    // Find-or-create the singleton hidden testing advisor.
+    const advisor = await this.prisma.advisor.upsert({
+      where: { email: TESTING_ADVISOR_EMAIL },
+      update: {},
+      create: { name: 'Testing (admin)', email: TESTING_ADVISOR_EMAIL, active: false },
+    });
+
+    const start = new Date();
+    const end = new Date(start.getTime() + 30 * 60000);
+    const consultation = await this.prisma.consultation.create({
+      data: {
+        applicantId,
+        advisorId: advisor.id,
+        scheduledStartUtc: start,
+        scheduledEndUtc: end,
+        studentTimezone: 'Asia/Dubai',
+        status: ConsultationStatus.completed,
+      },
+    });
+
+    // Walk the state machine forward to consultation_completed.
+    if (applicant.stage === ApplicantStage.intake_started) {
+      await this.applicants.transition(applicantId, ApplicantStage.consultation_booked, {
+        note: 'test consultation (admin shortcut)',
+        byUserId,
+      });
+    }
+    await this.applicants.transition(applicantId, ApplicantStage.consultation_completed, {
+      note: 'test consultation completed (admin shortcut)',
+      byUserId,
+    });
+
+    return { consultationId: consultation.id, stage: ApplicantStage.consultation_completed };
   }
 
   private async sendConfirmation(consultationId: string, verb = 'confirmed') {

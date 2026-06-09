@@ -12,6 +12,8 @@ import {
   type DocumentRec,
   type Invoice,
   type Balance,
+  type AuthUser,
+  type ApplicantTermRow,
 } from '@/lib/api';
 
 const DOC_TYPES = ['passport', 'emirates_id', 'prior_diploma', 'transcript', 'photo', 'legalization', 'other'];
@@ -27,18 +29,22 @@ export default function ApplicantDetailPage() {
   const [docs, setDocs] = useState<DocumentRec[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [balance, setBalance] = useState<Balance | null>(null);
+  const [me, setMe] = useState<AuthUser | null>(null);
+  const [terms, setTerms] = useState<ApplicantTermRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
-      const [ad, progs, dl, inv, bal] = await Promise.all([
+      const [ad, progs, dl, inv, bal, who, trm] = await Promise.all([
         api.get<ApplicantDetail>(`/applicants/${id}`),
         api.get<Program[]>('/programs'),
         api.get<DocumentRec[]>(`/documents?applicantId=${id}`),
         api.get<Invoice[]>(`/invoices?applicantId=${id}`),
         api.get<Balance>(`/applicants/${id}/balance`),
+        api.get<AuthUser>('/auth/me'),
+        api.get<ApplicantTermRow[]>(`/applicants/${id}/terms`),
       ]);
-      setA(ad); setPrograms(progs); setDocs(dl); setInvoices(inv); setBalance(bal);
+      setA(ad); setPrograms(progs); setDocs(dl); setInvoices(inv); setBalance(bal); setMe(who); setTerms(trm);
       setError(null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) { setToken(null); router.push('/login'); return; }
@@ -70,6 +76,19 @@ export default function ApplicantDetailPage() {
         </p>
       </header>
       {error && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p>}
+
+      {/* Consultation (admin test shortcut) */}
+      {me?.role === 'admin' && (a.stage === 'intake_started' || a.stage === 'consultation_booked') && (
+        <Panel title="Consultation (test)">
+          <p className="text-sm text-slate-500">
+            Admin-only: mark a consultation complete without an advisor/booking so you can test the
+            rest of the pipeline. Advances the applicant to <code>consultation_completed</code>.
+          </p>
+          <button className={btn} onClick={() => act(() => api.post(`/applicants/${id}/test-consultation`, {}))}>
+            Complete consultation (test)
+          </button>
+        </Panel>
+      )}
 
       {/* Program selection */}
       <Panel title="Program selection">
@@ -103,6 +122,19 @@ export default function ApplicantDetailPage() {
         <AddDocForm onAdd={(type) => act(() => api.post('/documents', { applicantId: id, type }))} />
       </Panel>
 
+      {/* Semesters (per-term billing + enrolment) */}
+      <Panel title="Semesters">
+        {terms.length === 0 ? (
+          <p className="text-sm text-slate-400">No terms — confirm a program first (the chosen program’s semesters appear here).</p>
+        ) : (
+          <ul className="space-y-2">
+            {terms.map((t) => (
+              <TermRow key={t.termId} applicantId={id} term={t} isAdmin={me?.role === 'admin'} act={act} />
+            ))}
+          </ul>
+        )}
+      </Panel>
+
       {/* Finance */}
       <Panel title="Finance">
         {balance && (
@@ -130,7 +162,15 @@ export default function ApplicantDetailPage() {
       {/* Moodle */}
       <Panel title="Moodle">
         <p className="text-sm text-slate-500">Moodle user id: {a.moodleUserId ?? '—'}</p>
-        <button className={btnAlt} onClick={() => act(() => api.post(`/applicants/${id}/moodle/provision`, {}))}>Provision / retry</button>
+        <div className="flex flex-wrap gap-2">
+          <button className={btnAlt} onClick={() => act(() => api.post(`/applicants/${id}/moodle/provision`, {}))}>Provision / retry</button>
+          {me?.role === 'admin' && (
+            <button className={btn} onClick={() => act(() => api.post(`/applicants/${id}/moodle/provision-test`, {}))}>Provision to Moodle now (test)</button>
+          )}
+        </div>
+        {me?.role === 'admin' && (
+          <p className="text-xs text-slate-400">Admin test: skips the payment gate. The student is enrolled in their chosen program’s Moodle courses (none if the program has no courses).</p>
+        )}
       </Panel>
 
       {/* History */}
@@ -205,6 +245,46 @@ function UploadButton({ documentId, onDone, setError }: { documentId: string; on
         }}
       />
     </label>
+  );
+}
+
+function TermRow({ applicantId, term, isAdmin, act }: {
+  applicantId: string;
+  term: ApplicantTermRow;
+  isAdmin: boolean;
+  act: (fn: () => Promise<unknown>) => Promise<void>;
+}) {
+  const [amount, setAmount] = useState(term.fee);
+  const statusColor: Record<string, string> = {
+    pending: 'bg-slate-100 text-slate-600 dark:bg-slate-800',
+    invoiced: 'bg-amber-100 text-amber-700',
+    paid: 'bg-sky-100 text-sky-700',
+    enrolled: 'bg-emerald-100 text-emerald-700',
+  };
+  return (
+    <li className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+      <span className="font-medium">{term.name}</span>
+      <span className={`rounded-full px-2 py-0.5 text-xs ${statusColor[term.status] ?? 'bg-slate-100 text-slate-600'}`}>{term.status}</span>
+      <span className="text-slate-400">{term.fee} {term.currency} · {term.courses} courses{Number(term.paid) > 0 ? ` · paid ${term.paid}` : ''}</span>
+      <span className="ml-auto flex flex-wrap items-center gap-2">
+        {term.status === 'pending' && (
+          <button className={btnAlt} onClick={() => act(() => api.post(`/applicants/${applicantId}/terms/${term.termId}/invoice`, {}))}>Invoice</button>
+        )}
+        {term.invoiceId && term.status !== 'paid' && term.status !== 'enrolled' && (
+          <>
+            <input className={`${inputCls} w-24`} type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <button className={btn} onClick={() => act(() => api.post(`/invoices/${term.invoiceId}/payments`, { amount: Number(amount), method: 'bank_transfer' }))}>Pay</button>
+          </>
+        )}
+        {term.status === 'paid' && (
+          <button className={btn} onClick={() => act(() => api.post(`/applicants/${applicantId}/moodle/terms/${term.termId}/provision`, {}))}>Enrol in Moodle</button>
+        )}
+        {term.status === 'enrolled' && <span className="text-xs font-medium text-emerald-600">✓ enrolled</span>}
+        {isAdmin && term.status !== 'enrolled' && (
+          <button className={btnAlt} title="Skip the payment gate (admin test)" onClick={() => act(() => api.post(`/applicants/${applicantId}/moodle/terms/${term.termId}/provision-test`, {}))}>force enrol</button>
+        )}
+      </span>
+    </li>
   );
 }
 

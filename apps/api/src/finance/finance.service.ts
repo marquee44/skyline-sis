@@ -8,6 +8,7 @@ import {
   ApplicantStage,
   InvoiceStatus,
   ProgramChoiceStatus,
+  TermEnrollmentStatus,
   Prisma,
 } from '@skyline/db';
 import { PrismaService } from '../prisma/prisma.service';
@@ -123,7 +124,17 @@ export class FinanceService {
     const unlocked = total.gt(0) && paid.gte(total.times(this.unlockThreshold()));
     if (unlocked) {
       await this.advance(invoice.applicantId, ApplicantStage.invoice_issued, ApplicantStage.payment_received, 'payment threshold reached');
-      await this.enqueueProvisioning(invoice.applicantId);
+      if (invoice.termId) {
+        // Per-term: mark the term paid and enrol just that semester's courses.
+        await this.prisma.termEnrollment.upsert({
+          where: { applicantId_termId: { applicantId: invoice.applicantId, termId: invoice.termId } },
+          update: { status: TermEnrollmentStatus.paid, invoiceId: invoice.id },
+          create: { applicantId: invoice.applicantId, termId: invoice.termId, status: TermEnrollmentStatus.paid, invoiceId: invoice.id },
+        });
+        await this.enqueueProvisioning(invoice.applicantId, invoice.termId);
+      } else {
+        await this.enqueueProvisioning(invoice.applicantId);
+      }
     }
 
     return { payment, invoiceStatus: status, unlocked };
@@ -171,6 +182,51 @@ export class FinanceService {
     };
   }
 
+  // Admin overview: every applicant with where they are (stage, program) and what
+  // they owe (invoiced / paid / outstanding) + Moodle status. One pass, no N+1.
+  async studentsOverview() {
+    const applicants = await this.prisma.applicant.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        chosenProgram: { select: { name: true, _count: { select: { terms: true } } } },
+        invoices: {
+          where: { status: { not: InvoiceStatus.cancelled } },
+          include: { payments: { select: { amount: true } } },
+        },
+        termEnrollments: { include: { term: { select: { name: true, sequence: true } } } },
+      },
+    });
+    return applicants.map((a) => {
+      let invoiced = new Prisma.Decimal(0);
+      let paid = new Prisma.Decimal(0);
+      for (const inv of a.invoices) {
+        invoiced = invoiced.plus(inv.amountTotal);
+        for (const p of inv.payments) paid = paid.plus(p.amount);
+      }
+      // The latest term the student has reached (highest sequence), + progress.
+      const sorted = [...a.termEnrollments].sort((x, y) => y.term.sequence - x.term.sequence);
+      const current = sorted[0];
+      const termsEnrolled = a.termEnrollments.filter((te) => te.status === TermEnrollmentStatus.enrolled).length;
+      return {
+        id: a.id,
+        name: `${a.firstName} ${a.lastName}`.trim(),
+        email: a.email,
+        stage: a.stage,
+        programChoiceStatus: a.programChoiceStatus,
+        program: a.chosenProgram?.name ?? null,
+        currency: a.invoices[0]?.currency ?? 'AED',
+        invoiced: invoiced.toFixed(2),
+        paid: paid.toFixed(2),
+        outstanding: invoiced.minus(paid).toFixed(2),
+        moodleUserId: a.moodleUserId,
+        currentTerm: current?.term.name ?? null,
+        currentTermStatus: current?.status ?? null,
+        termsEnrolled,
+        termsTotal: a.chosenProgram?._count.terms ?? 0,
+      };
+    });
+  }
+
   async universityBalance(universityId: string) {
     const forwards = await this.prisma.forward.findMany({ where: { universityId } });
     const byCurrency: Record<string, Prisma.Decimal> = {};
@@ -193,12 +249,83 @@ export class FinanceService {
     }
   }
 
-  private async enqueueProvisioning(applicantId: string) {
+  private async enqueueProvisioning(applicantId: string, termId?: string) {
     try {
-      await this.jobs.enqueue(MOODLE_PROVISION_QUEUE, { applicantId });
-      this.logger.log(`Enqueued Moodle provisioning for ${applicantId}`);
+      await this.jobs.enqueue(MOODLE_PROVISION_QUEUE, termId ? { applicantId, termId } : { applicantId });
+      this.logger.log(`Enqueued Moodle provisioning for ${applicantId}${termId ? ` term ${termId}` : ''}`);
     } catch (e) {
       this.logger.warn(`Could not enqueue provisioning: ${(e as Error).message}`);
     }
+  }
+
+  // ── Per-term (per-semester) billing ──────────────────────────────────────────
+
+  /** The chosen program's terms with this applicant's per-term status + money. */
+  async listApplicantTerms(applicantId: string) {
+    const applicant = await this.prisma.applicant.findUnique({ where: { id: applicantId } });
+    if (!applicant?.chosenProgramId) return [];
+    const terms = await this.prisma.term.findMany({
+      where: { programId: applicant.chosenProgramId },
+      orderBy: { sequence: 'asc' },
+      include: { _count: { select: { courses: true } }, enrollments: { where: { applicantId } } },
+    });
+    return Promise.all(
+      terms.map(async (t) => {
+        const te = t.enrollments[0];
+        let invoiceStatus: string | null = null;
+        let paid = '0.00';
+        if (te?.invoiceId) {
+          const inv = await this.prisma.invoice.findUnique({ where: { id: te.invoiceId }, include: { payments: true } });
+          if (inv) {
+            invoiceStatus = inv.status;
+            paid = inv.payments.reduce((s, p) => s.plus(p.amount), new Prisma.Decimal(0)).toFixed(2);
+          }
+        }
+        return {
+          termId: t.id,
+          name: t.name,
+          sequence: t.sequence,
+          fee: t.tuitionTotal.toFixed(2),
+          currency: t.tuitionCurrency,
+          courses: t._count.courses,
+          status: (te?.status ?? 'pending') as string,
+          invoiceId: te?.invoiceId ?? null,
+          invoiceStatus,
+          paid,
+        };
+      }),
+    );
+  }
+
+  /** Issue an invoice for one term (per-semester billing). Idempotent per term. */
+  async invoiceTerm(applicantId: string, termId: string) {
+    const applicant = await this.prisma.applicant.findUnique({ where: { id: applicantId } });
+    if (!applicant) throw new BadRequestException('Applicant not found');
+    const term = await this.prisma.term.findUnique({ where: { id: termId } });
+    if (!term) throw new BadRequestException('Term not found');
+    if (applicant.chosenProgramId !== term.programId) {
+      throw new BadRequestException("Term is not part of the applicant's chosen program");
+    }
+    const existing = await this.prisma.invoice.findFirst({
+      where: { applicantId, termId, status: { not: InvoiceStatus.cancelled } },
+    });
+    if (existing) return existing;
+    const invoice = await this.prisma.invoice.create({
+      data: {
+        applicantId,
+        programId: term.programId,
+        termId,
+        amountTotal: term.tuitionTotal,
+        currency: term.tuitionCurrency,
+        status: InvoiceStatus.issued,
+        issuedAt: new Date(),
+      },
+    });
+    await this.prisma.termEnrollment.upsert({
+      where: { applicantId_termId: { applicantId, termId } },
+      update: { status: TermEnrollmentStatus.invoiced, invoiceId: invoice.id },
+      create: { applicantId, termId, status: TermEnrollmentStatus.invoiced, invoiceId: invoice.id },
+    });
+    return invoice;
   }
 }

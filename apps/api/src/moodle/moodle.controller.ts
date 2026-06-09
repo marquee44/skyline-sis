@@ -19,6 +19,25 @@ export class MoodleController {
     return this.provisioning.provision(id);
   }
 
+  // TEST-ONLY (admin): provision to Moodle now, skipping the finance/stage gate.
+  @Post('provision-test')
+  @Roles('admin')
+  provisionTest(@Param('id') id: string) {
+    return this.provisioning.provision(id, { force: true });
+  }
+
+  // Per-term provisioning: enrol the student in one semester's courses (gated on
+  // that term being paid). The admin '-test' variant skips the paid gate.
+  @Post('terms/:termId/provision')
+  provisionTerm(@Param('id') id: string, @Param('termId') termId: string) {
+    return this.provisioning.provisionTerm(id, termId);
+  }
+  @Post('terms/:termId/provision-test')
+  @Roles('admin')
+  provisionTermTest(@Param('id') id: string, @Param('termId') termId: string) {
+    return this.provisioning.provisionTerm(id, termId, { force: true });
+  }
+
   // Read-back (increment 14, read-only): grades + completion per course.
   @Get('progress')
   progress(@Param('id') id: string) {
