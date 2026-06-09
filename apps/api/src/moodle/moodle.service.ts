@@ -102,6 +102,13 @@ export class MoodleService {
     });
   }
 
+  // One-time login URL for a student (via the local_sislogin bridge plugin), so
+  // the SIS portal can drop them straight into Moodle as themselves.
+  async requestLoginUrl(email: string): Promise<string> {
+    const res = await this.call<{ loginurl: string }>('local_sislogin_request_login_url', { email });
+    return res.loginurl;
+  }
+
   // ── Catalog browse (for import + mapping) ───────────────────────────────────
   async getCategories(): Promise<MoodleCategory[]> {
     const cats = await this.call<MoodleCategory[]>('core_course_get_categories', {});

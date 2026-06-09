@@ -20,16 +20,11 @@ const STAGE_LABEL: Record<string, string> = {
   graduated: 'Graduated',
 };
 
-// Link to Moodle's login (not the homepage): the SIS and Moodle have separate
-// logins, so the homepage shows whatever Moodle session the browser already has.
-// Sending students to /login prompts them to sign in as themselves. (Proper fix:
-// SSO via Authentik — roadmap.)
-const MOODLE_URL = 'https://lms.skyline-as.ae/login/index.php';
-
 export default function PortalPage() {
   const router = useRouter();
   const [data, setData] = useState<MeOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [moodleBusy, setMoodleBusy] = useState(false);
 
   useEffect(() => {
     if (!getToken()) { router.push('/login'); return; }
@@ -40,6 +35,18 @@ export default function PortalPage() {
         setError(err instanceof Error ? err.message : 'Failed to load');
       });
   }, [router]);
+
+  // Single sign-on bridge: get a one-time Moodle login URL and go there as themselves.
+  async function goToMoodle() {
+    setMoodleBusy(true);
+    try {
+      const { loginUrl } = await api.get<{ loginUrl: string }>('/me/moodle-login');
+      window.location.href = loginUrl;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not open Moodle');
+      setMoodleBusy(false);
+    }
+  }
 
   if (error) return <main className="mx-auto max-w-2xl px-6 py-10"><p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p></main>;
   if (!data) return <p className="p-8 text-slate-500">Loading…</p>;
@@ -95,7 +102,7 @@ export default function PortalPage() {
                 <StatusPill status={t.status} />
                 <span className="text-slate-400">{t.fee} {t.currency} · {t.courses} courses{Number(t.paid) > 0 ? ` · paid ${t.paid}` : ''}</span>
                 {t.status === 'enrolled' && applicant.moodleUserId && (
-                  <a href={MOODLE_URL} target="_blank" rel="noreferrer" className="ml-auto text-xs text-sky-600 hover:underline">open in Moodle →</a>
+                  <button onClick={goToMoodle} disabled={moodleBusy} className="ml-auto text-xs text-sky-600 hover:underline disabled:opacity-50">open in Moodle →</button>
                 )}
               </li>
             ))}
@@ -130,10 +137,10 @@ export default function PortalPage() {
 
       {applicant.moodleUserId && (
         <div className="space-y-1">
-          <a href={MOODLE_URL} target="_blank" rel="noreferrer" className="inline-block rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">
-            Go to my courses (Moodle) →
-          </a>
-          <p className="text-xs text-slate-400">Sign in to Moodle with your own email ({applicant.email}).</p>
+          <button onClick={goToMoodle} disabled={moodleBusy} className="inline-block rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50">
+            {moodleBusy ? 'Opening Moodle…' : 'Go to my courses (Moodle) →'}
+          </button>
+          <p className="text-xs text-slate-400">Opens Moodle signed in as you — no second login.</p>
         </div>
       )}
     </main>
