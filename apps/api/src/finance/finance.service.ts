@@ -227,6 +227,75 @@ export class FinanceService {
     });
   }
 
+  // Finance report: overall totals + breakdowns by program, by term, and the
+  // list of students who still owe. One query, aggregated in memory.
+  async financeReport() {
+    const invoices = await this.prisma.invoice.findMany({
+      where: { status: { not: InvoiceStatus.cancelled } },
+      include: {
+        payments: { select: { amount: true } },
+        program: { select: { id: true, name: true } },
+        term: { select: { id: true, name: true } },
+        applicant: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    type Agg = { key: string; name: string; invoiced: Prisma.Decimal; paid: Prisma.Decimal };
+    const bump = (m: Map<string, Agg>, key: string, name: string, inv: Prisma.Decimal, paid: Prisma.Decimal) => {
+      const a = m.get(key) ?? { key, name, invoiced: new Prisma.Decimal(0), paid: new Prisma.Decimal(0) };
+      a.invoiced = a.invoiced.plus(inv);
+      a.paid = a.paid.plus(paid);
+      m.set(key, a);
+    };
+
+    let invTot = new Prisma.Decimal(0);
+    let paidTot = new Prisma.Decimal(0);
+    let currency = 'AED';
+    const byProgram = new Map<string, Agg>();
+    const byTerm = new Map<string, Agg>();
+    const byApplicant = new Map<string, Agg>();
+
+    for (const inv of invoices) {
+      currency = inv.currency ?? currency;
+      const paid = inv.payments.reduce((s, p) => s.plus(p.amount), new Prisma.Decimal(0));
+      invTot = invTot.plus(inv.amountTotal);
+      paidTot = paidTot.plus(paid);
+      bump(byProgram, inv.program?.id ?? 'none', inv.program?.name ?? '—', inv.amountTotal, paid);
+      bump(
+        byTerm,
+        inv.term?.id ?? 'none',
+        inv.term ? `${inv.program?.name ?? ''} · ${inv.term.name}` : '— (no term)',
+        inv.amountTotal,
+        paid,
+      );
+      bump(byApplicant, inv.applicant.id, `${inv.applicant.firstName} ${inv.applicant.lastName}`.trim(), inv.amountTotal, paid);
+    }
+
+    const out = (m: Map<string, Agg>) =>
+      Array.from(m.values())
+        .map((a) => ({
+          name: a.name,
+          invoiced: a.invoiced.toFixed(2),
+          paid: a.paid.toFixed(2),
+          outstanding: a.invoiced.minus(a.paid).toFixed(2),
+        }))
+        .sort((x, y) => Number(y.invoiced) - Number(x.invoiced));
+
+    return {
+      currency,
+      totals: {
+        invoiced: invTot.toFixed(2),
+        paid: paidTot.toFixed(2),
+        outstanding: invTot.minus(paidTot).toFixed(2),
+      },
+      byProgram: out(byProgram),
+      byTerm: out(byTerm),
+      outstanding: out(byApplicant)
+        .filter((a) => Number(a.outstanding) > 0)
+        .sort((x, y) => Number(y.outstanding) - Number(x.outstanding)),
+    };
+  }
+
   async universityBalance(universityId: string) {
     const forwards = await this.prisma.forward.findMany({ where: { universityId } });
     const byCurrency: Record<string, Prisma.Decimal> = {};

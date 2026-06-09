@@ -69,6 +69,7 @@ export default function StudentsOverviewPage() {
         <h1 className="text-2xl font-bold">Students</h1>
         <nav className="flex gap-4 text-sm text-slate-500">
           <a href="/pipeline" className="hover:underline">Pipeline</a>
+          <a href="/reports" className="hover:underline">Reports</a>
           <a href="/applicants" className="hover:underline">Applicants</a>
           <a href="/catalog" className="hover:underline">Catalog</a>
           <a href="/account" className="hover:underline">Account</a>

@@ -16,6 +16,12 @@ export class FinanceController {
     return this.finance.studentsOverview();
   }
 
+  // Finance report: totals + breakdowns by program/term + who owes.
+  @Get('reports/finance')
+  financeReport() {
+    return this.finance.financeReport();
+  }
+
   // Per-term (per-semester) billing.
   @Get('applicants/:id/terms')
   applicantTerms(@Param('id') id: string) {

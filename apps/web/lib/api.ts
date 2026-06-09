@@ -176,6 +176,21 @@ export interface ApplicantTermRow {
   locked: boolean;
 }
 
+export interface FinanceReportRow {
+  name: string;
+  invoiced: string;
+  paid: string;
+  outstanding: string;
+}
+
+export interface FinanceReport {
+  currency: string;
+  totals: { invoiced: string; paid: string; outstanding: string };
+  byProgram: FinanceReportRow[];
+  byTerm: FinanceReportRow[];
+  outstanding: FinanceReportRow[];
+}
+
 export interface StudentOverviewRow {
   id: string;
   name: string;
