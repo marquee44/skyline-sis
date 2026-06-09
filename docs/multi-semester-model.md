@@ -63,10 +63,14 @@ University  (academy / faculty)
    invoice+pay I semestar → auto-enrolled in its 5 Moodle courses (Moodle user 13).
    Also fixed: Moodle username now sanitized (email `+aliases` are valid emails but
    were invalid Moodle usernames).
-   KNOWN NUANCE: a student driven straight through the term flow keeps `stage =
-   program_confirmed` (the linear documents/invoice stages are bypassed); the
-   `TermEnrollment` status is the real per-semester truth. Phase 4 surfaces that.
-   TODO later: make `termId` required + retire `Program.tuitionTotal`.
+   Stage handling (2026-06-08): on a term being paid+enrolled the applicant is
+   fast-forwarded through the linear chain to `active_student` (documents/invoice
+   stages are bypassed in the per-term model). Term order is enforced — a term
+   can't be invoiced until every earlier semester is paid/enrolled; the next due
+   term is unlocked automatically, and `listApplicantTerms` returns a `locked`
+   flag (UI shows 🔒 on locked terms). Verified E2E.
+   TODO later: make `termId` required + retire `Program.tuitionTotal` + the
+   legacy whole-program invoice/provision path.
 4. **Admin dashboard** — ✅ DONE. `/students` page: every student with stage,
    program, **current semester + per-term status (enrolled/paid/…) + N/total**,
    paid vs. outstanding, Moodle id. Filter by stage, search by name/email/program,

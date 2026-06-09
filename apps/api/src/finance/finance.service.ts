@@ -269,7 +269,7 @@ export class FinanceService {
       orderBy: { sequence: 'asc' },
       include: { _count: { select: { courses: true } }, enrollments: { where: { applicantId } } },
     });
-    return Promise.all(
+    const rows = await Promise.all(
       terms.map(async (t) => {
         const te = t.enrollments[0];
         let invoiceStatus: string | null = null;
@@ -281,6 +281,7 @@ export class FinanceService {
             paid = inv.payments.reduce((s, p) => s.plus(p.amount), new Prisma.Decimal(0)).toFixed(2);
           }
         }
+        const status = (te?.status ?? 'pending') as string;
         return {
           termId: t.id,
           name: t.name,
@@ -288,13 +289,22 @@ export class FinanceService {
           fee: t.tuitionTotal.toFixed(2),
           currency: t.tuitionCurrency,
           courses: t._count.courses,
-          status: (te?.status ?? 'pending') as string,
+          status,
           invoiceId: te?.invoiceId ?? null,
           invoiceStatus,
           paid,
+          locked: false, // set below
         };
       }),
     );
+    // A term is locked until every earlier semester is paid/enrolled (terms are
+    // sequence-ordered above, so a single forward pass sets it).
+    let allPrevDone = true;
+    for (const r of rows) {
+      r.locked = !allPrevDone;
+      if (r.status !== 'paid' && r.status !== 'enrolled') allPrevDone = false;
+    }
+    return rows;
   }
 
   /** Issue an invoice for one term (per-semester billing). Idempotent per term. */
@@ -305,6 +315,19 @@ export class FinanceService {
     if (!term) throw new BadRequestException('Term not found');
     if (applicant.chosenProgramId !== term.programId) {
       throw new BadRequestException("Term is not part of the applicant's chosen program");
+    }
+    // Sequence gate: every earlier semester must be paid/enrolled first.
+    const earlier = await this.prisma.term.findMany({
+      where: { programId: term.programId, sequence: { lt: term.sequence } },
+      orderBy: { sequence: 'asc' },
+      include: { enrollments: { where: { applicantId } } },
+    });
+    const blocking = earlier.find((t) => {
+      const st = t.enrollments[0]?.status;
+      return st !== TermEnrollmentStatus.paid && st !== TermEnrollmentStatus.enrolled;
+    });
+    if (blocking) {
+      throw new BadRequestException(`Pay ${blocking.name} before invoicing ${term.name}`);
     }
     const existing = await this.prisma.invoice.findFirst({
       where: { applicantId, termId, status: { not: InvoiceStatus.cancelled } },

@@ -117,17 +117,41 @@ export class ProvisioningService implements OnModuleInit {
         update: { status: TermEnrollmentStatus.enrolled, enrolledAt: new Date() },
         create: { applicantId, termId, status: TermEnrollmentStatus.enrolled, enrolledAt: new Date() },
       });
-      // Move the applicant along on their first provisioned term.
-      const fresh = await this.prisma.applicant.findUnique({ where: { id: applicantId } });
-      if (fresh?.stage === ApplicantStage.payment_received) {
-        await this.applicants.transition(applicantId, ApplicantStage.enrolled, { note: `enrolled in ${term.name}` }).catch((e) => this.logger.warn(`advance failed: ${(e as Error).message}`));
-      }
-      const fresh2 = await this.prisma.applicant.findUnique({ where: { id: applicantId } });
-      if (fresh2?.stage === ApplicantStage.enrolled) {
-        await this.applicants.transition(applicantId, ApplicantStage.active_student, { note: 'active student' }).catch(() => undefined);
-      }
+      // Once a semester is paid + enrolled the student is, by definition, active.
+      await this.advanceToActiveStudent(applicantId, term.name);
     }
     return { moodleUserId, enrolled, pending };
+  }
+
+  // The linear post-confirmation stages. In the per-term model the documents/
+  // invoice stages are bypassed, so we fast-forward through them once a semester
+  // is actually paid + enrolled.
+  private static readonly POST_CONFIRM_CHAIN: ApplicantStage[] = [
+    ApplicantStage.program_confirmed,
+    ApplicantStage.documents_pending,
+    ApplicantStage.documents_verified,
+    ApplicantStage.invoice_issued,
+    ApplicantStage.payment_received,
+    ApplicantStage.enrolled,
+    ApplicantStage.active_student,
+  ];
+
+  private async advanceToActiveStudent(applicantId: string, note: string) {
+    // Step forward one legal transition at a time until active_student. Idempotent:
+    // a student already active (or off the linear chain) is left untouched.
+    for (let guard = 0; guard < ProvisioningService.POST_CONFIRM_CHAIN.length; guard++) {
+      const a = await this.prisma.applicant.findUnique({ where: { id: applicantId } });
+      if (!a) return;
+      const idx = ProvisioningService.POST_CONFIRM_CHAIN.indexOf(a.stage);
+      if (idx === -1 || a.stage === ApplicantStage.active_student) return;
+      const next = ProvisioningService.POST_CONFIRM_CHAIN[idx + 1];
+      try {
+        await this.applicants.transition(applicantId, next, { note: `enrolled in ${note}` });
+      } catch (e) {
+        this.logger.warn(`fast-forward ${a.stage}→${next} failed: ${(e as Error).message}`);
+        return;
+      }
+    }
   }
 
   // ── shared helpers ──────────────────────────────────────────────────────────

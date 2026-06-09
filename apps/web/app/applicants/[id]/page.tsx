@@ -267,7 +267,10 @@ function TermRow({ applicantId, term, isAdmin, act }: {
       <span className={`rounded-full px-2 py-0.5 text-xs ${statusColor[term.status] ?? 'bg-slate-100 text-slate-600'}`}>{term.status}</span>
       <span className="text-slate-400">{term.fee} {term.currency} · {term.courses} courses{Number(term.paid) > 0 ? ` · paid ${term.paid}` : ''}</span>
       <span className="ml-auto flex flex-wrap items-center gap-2">
-        {term.status === 'pending' && (
+        {term.status === 'pending' && term.locked && (
+          <span className="text-xs text-slate-400" title="Pay the earlier semester(s) first">🔒 locked</span>
+        )}
+        {term.status === 'pending' && !term.locked && (
           <button className={btnAlt} onClick={() => act(() => api.post(`/applicants/${applicantId}/terms/${term.termId}/invoice`, {}))}>Invoice</button>
         )}
         {term.invoiceId && term.status !== 'paid' && term.status !== 'enrolled' && (

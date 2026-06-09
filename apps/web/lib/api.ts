@@ -142,6 +142,7 @@ export interface ApplicantTermRow {
   invoiceId: string | null;
   invoiceStatus: string | null;
   paid: string;
+  locked: boolean;
 }
 
 export interface StudentOverviewRow {
