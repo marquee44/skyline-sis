@@ -58,8 +58,10 @@ Effort key: **S** ≈ hours, **M** ≈ a few days, **L** ≈ 1–2 weeks.
 
 ## Tier 3 — Business operations & finance depth
 
-- **Financial aid / scholarships / discounts** — per-student fee adjustments on a term,
-  scholarship tracking, partial waivers, reflected in invoices + the dashboard. **(M)**
+- **Financial aid / scholarships / discounts** — ✅ DONE (2026-06-09). Per-student
+  `scholarshipPercent` (+ note) set via the applicant page; auto-applied to every term
+  invoice (`invoiceTerm` bills fee − %). Term rows + portal show gross struck-through + net.
+  Verified: 20% → a 5000 semester is invoiced 4000.
 - **Custom reports / analytics** — revenue per term/university, admissions funnel by stage,
   outstanding balances, forwards owed to universities; exportable (CSV/PDF). **(M)**
 - **Accounting integration (QuickBooks / Zoho Books)** — sync invoices, payments, and
