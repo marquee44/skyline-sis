@@ -48,6 +48,7 @@ export default function PipelinePage() {
           <a href="/applicants" className="hover:underline">Applicants</a>
           <a href="/advisors" className="hover:underline">Advisors</a>
           <a href="/catalog" className="hover:underline">Catalog</a>
+          <a href="/account" className="hover:underline">Account</a>
         </nav>
       </header>
 

@@ -1,0 +1,91 @@
+# Skyline SIS — Roadmap
+
+_Last updated 2026-06-09. Companion to [progress.md](../progress.md) (what's done) and
+[multi-semester-model.md](multi-semester-model.md) (the per-term design)._
+
+Skyline is an **admissions + enrollment + finance + Moodle-provisioning** system, not a
+full school SIS. Teaching (course delivery, attendance entry, grade entry) stays in
+**Moodle**, where faculty work; the SIS owns the **administrative record** (enrollment,
+money, documents, official academic record, compliance) and **reads** operational data
+back from Moodle. Items below respect that boundary — anything that belongs to Moodle or
+the partner universities is deliberately excluded.
+
+Effort key: **S** ≈ hours, **M** ≈ a few days, **L** ≈ 1–2 weeks.
+
+---
+
+## Tier 0 — Pre-launch hardening ✅ DONE (2026-06-09)
+
+- **Admin password** — ✅ rotated off the public default; added self-service change-password
+  (`POST /auth/change-password` + `/account` page). New password stored in `.env`.
+- **Automated backups** — ✅ nightly cron `15 2 * * *` runs `scripts/backup-sis.sh`
+  (→ `/var/log/skyline-backup.log`). Verified under a clean shell.
+- **Email delivery** — ✅ code wired to Resend HTTP API (was a stub that silently logged).
+  ⚠️ NOT yet active: needs `EMAIL_API_KEY` (Resend `re_…`) + `EMAIL_FROM` (verified sender
+  domain via DNS). Until set, it's safe log-only and warns. **Action on you:** create a
+  Resend account, verify the domain, set both env vars.
+
+## Tier 1 — Highest user value
+
+- **Student portal (self-service)** ⭐ #1 gap. Students log in (the `student` role already
+  exists) to see their stage, **semesters + what's due/paid**, documents, and official
+  grades; pay a term; deep-link to Moodle for coursework. The keystone that turns this from
+  an admin tool into the student's administrative home. **(L)**
+- **Online payment gateway + receipts** — integrate a UAE-friendly gateway (Telr / Network
+  International / Stripe). Student pays a term online → payment auto-recorded → PDF receipt.
+  Closes the finance loop (today payments are keyed by hand). Pairs with the portal. **(M–L)**
+- **Communications: SMS / WhatsApp + announcements** — beyond transactional email: dunning
+  reminders for unpaid/locked terms, "next semester open" notices, broadcast announcements.
+  WhatsApp Business API or Twilio. **(M)**
+
+## Tier 2 — Complete the academic loop (extends the Moodle read-back)
+
+- **Attendance read-back from Moodle** — faculty mark attendance in Moodle (its Attendance
+  activity); the SIS pulls it for **UAE visa compliance**, at-risk flags, and progression.
+  Don't build attendance *entry* in the SIS. **(M, needs Moodle Attendance + a WS function)**
+- **Degree audit / graduation tracking** ⭐ — requirements (terms/credits) vs. completed,
+  "on track to graduate?", auto-advance to `graduated`. Natural next layer on the per-term
+  model; uses program `ects` + term data we already have. **(M)**
+- **Transcript / academic record (PDF)** — turn the grades we already read from Moodle into
+  an official per-student transcript + the university export. **(M)**
+
+## Tier 3 — Business operations & finance depth
+
+- **Financial aid / scholarships / discounts** — per-student fee adjustments on a term,
+  scholarship tracking, partial waivers, reflected in invoices + the dashboard. **(M)**
+- **Custom reports / analytics** — revenue per term/university, admissions funnel by stage,
+  outstanding balances, forwards owed to universities; exportable (CSV/PDF). **(M)**
+- **Accounting integration (QuickBooks / Zoho Books)** — sync invoices, payments, and
+  university forwards to the books instead of re-keying. Relevant because real money moves. **(M–L)**
+
+## Tier 4 — Polish, reach, scale
+
+- **Multilingual UI (English / Arabic / Serbian)** — fits the UAE base + Serbian partner
+  content; matters most for the student portal. **(M)**
+- **SSO (Google / Microsoft)** — log in with existing accounts; less password risk. **(M)**
+- **Mobile / PWA** — installable, offline-friendly; students especially. **(M)**
+- **New-term automation** — auto-issue the next semester's invoice when it opens + dunning
+  schedule; builds on per-term billing. **(M)**
+
+## Tier 5 — Technical debt / cleanup (no user-facing change)
+
+- **Retire the legacy flat billing path** — now that per-term billing works, make
+  `Course.termId` / `Invoice.termId` required, drop `Program.tuitionTotal`, and remove the
+  old whole-program invoice + provision buttons. **(S–M)**
+- **Clean up test data** — remove the test applicants (Phase3 Tester, Seq Test, mm ll,
+  Moodle Tester, etc.) and their Moodle users before real use. **(S)**
+- **Re-point or remove the hidden flat programs** left inactive after the import rework. **(S)**
+
+---
+
+## Recommended sequence
+1. **Tier 0** (a day total) — don't go live without it.
+2. **Student portal → online payments → SMS/WhatsApp dunning** (Tier 1) — the product-defining arc.
+3. **Degree audit + transcript + attendance** (Tier 2) — completes the academic record.
+4. **Scholarships, reporting, accounting** (Tier 3) as the operation scales.
+5. **Tier 4/5** opportunistically.
+
+## Deliberately out of scope (Moodle's or the university's job — don't build)
+Course content & delivery, in-SIS timetabling/rooms, gradebook *entry*, attendance *entry*,
+lesson plans, standards-based grading, behavior/discipline, medical records, parent &
+teacher portals.

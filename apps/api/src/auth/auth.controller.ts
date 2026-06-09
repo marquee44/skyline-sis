@@ -2,7 +2,7 @@ import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/c
 import { JwtAuthGuard, RolesGuard } from './guards';
 import { Roles } from './roles';
 import { AuthService } from './auth.service';
-import { LoginDto } from './dto';
+import { ChangePasswordDto, LoginDto } from './dto';
 
 /**
  * Auth surface: password login → JWT, plus the guard/roles plumbing every
@@ -24,6 +24,14 @@ export class AuthController {
   @Get('me')
   me(@Req() req: { user: unknown }) {
     return req.user;
+  }
+
+  // Self-service password change (any authenticated user).
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @HttpCode(200)
+  changePassword(@Body() dto: ChangePasswordDto, @Req() req: { user: { id: string } }) {
+    return this.auth.changePassword(req.user.id, dto.currentPassword, dto.newPassword);
   }
 
   // Example of a staff-only route, proving the roles guard is wired.
