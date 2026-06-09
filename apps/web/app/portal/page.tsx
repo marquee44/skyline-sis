@@ -73,6 +73,9 @@ export default function PortalPage() {
           {!audit.graduated && audit.nextTerm && (
             <p className="text-xs text-slate-400">Next up: {audit.nextTerm}</p>
           )}
+          {applicant.moodleUserId && (
+            <a href="/portal/transcript" className="inline-block text-sm text-sky-600 hover:underline">View my grades / transcript →</a>
+          )}
         </Card>
       )}
 

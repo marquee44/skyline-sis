@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MoodleController } from './moodle.controller';
 import { MoodleCatalogController } from './moodle-catalog.controller';
+import { StudentTranscriptController } from './student-transcript.controller';
 import { MoodleService } from './moodle.service';
 import { ProvisioningService } from './provisioning.service';
 import { MoodleReadbackService } from './readback.service';
@@ -10,7 +11,7 @@ import { ApplicantsModule } from '../applicants/applicants.module';
 
 @Module({
   imports: [AuthModule, ApplicantsModule],
-  controllers: [MoodleController, MoodleCatalogController],
+  controllers: [MoodleController, MoodleCatalogController, StudentTranscriptController],
   providers: [MoodleService, ProvisioningService, MoodleReadbackService, CatalogImportService],
 })
 export class MoodleModule {}

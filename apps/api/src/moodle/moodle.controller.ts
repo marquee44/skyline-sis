@@ -44,6 +44,12 @@ export class MoodleController {
     return this.readback.progress(id);
   }
 
+  // Distilled transcript: per-course grade + completion.
+  @Get('transcript')
+  transcript(@Param('id') id: string) {
+    return this.readback.transcript(id);
+  }
+
   // University export (increment 14): completion/grades bundle for the partner.
   @Get('export')
   export(@Param('id') id: string) {
