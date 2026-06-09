@@ -62,8 +62,11 @@ Effort key: **S** ≈ hours, **M** ≈ a few days, **L** ≈ 1–2 weeks.
   `scholarshipPercent` (+ note) set via the applicant page; auto-applied to every term
   invoice (`invoiceTerm` bills fee − %). Term rows + portal show gross struck-through + net.
   Verified: 20% → a 5000 semester is invoiced 4000.
-- **Custom reports / analytics** — revenue per term/university, admissions funnel by stage,
-  outstanding balances, forwards owed to universities; exportable (CSV/PDF). **(M)**
+- **Custom reports / analytics** — ✅ PARTLY DONE (2026-06-09). `/reports` page:
+  revenue by program + by semester + outstanding balances, each CSV-exportable
+  (`GET /reports/finance`). Plus an at-risk "Needs attention" card on the Students
+  dashboard (`GET /reports/at-risk`: owes / stalled >14d / paid-but-not-in-Moodle).
+  Still possible later: admissions funnel chart, forwards-owed report, PDF export.
 - **Accounting integration (QuickBooks / Zoho Books)** — sync invoices, payments, and
   university forwards to the books instead of re-keying. Relevant because real money moves. **(M–L)**
 
