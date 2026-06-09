@@ -22,6 +22,12 @@ export class FinanceController {
     return this.finance.financeReport();
   }
 
+  // Students needing attention (owes / stalled / paid-but-not-in-Moodle).
+  @Get('reports/at-risk')
+  atRisk() {
+    return this.finance.atRiskStudents();
+  }
+
   // Per-term (per-semester) billing.
   @Get('applicants/:id/terms')
   applicantTerms(@Param('id') id: string) {

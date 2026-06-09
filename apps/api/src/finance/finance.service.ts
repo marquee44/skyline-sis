@@ -296,6 +296,60 @@ export class FinanceService {
     };
   }
 
+  // Students who need attention, derived from data we already hold: owes money,
+  // stalled in a stage too long, or paid but never provisioned to Moodle.
+  async atRiskStudents() {
+    const STUCK_DAYS = 14;
+    const TERMINAL: ApplicantStage[] = [ApplicantStage.graduated, ApplicantStage.withdrawn, ApplicantStage.rejected];
+    const POST_PAY: ApplicantStage[] = [ApplicantStage.payment_received, ApplicantStage.enrolled, ApplicantStage.active_student];
+
+    const applicants = await this.prisma.applicant.findMany({
+      include: {
+        chosenProgram: { select: { name: true } },
+        invoices: { where: { status: { not: InvoiceStatus.cancelled } }, include: { payments: { select: { amount: true } } } },
+        stageTransitions: { orderBy: { createdAt: 'desc' }, take: 1 },
+      },
+    });
+    const now = Date.now();
+    const rows: Array<{
+      id: string; name: string; stage: ApplicantStage; program: string | null;
+      outstanding: string; currency: string; daysInStage: number; reasons: string[];
+    }> = [];
+
+    for (const a of applicants) {
+      if (TERMINAL.includes(a.stage)) continue;
+      let invoiced = new Prisma.Decimal(0);
+      let paid = new Prisma.Decimal(0);
+      for (const inv of a.invoices) {
+        invoiced = invoiced.plus(inv.amountTotal);
+        for (const p of inv.payments) paid = paid.plus(p.amount);
+      }
+      const outstanding = invoiced.minus(paid);
+      const lastChange = a.stageTransitions[0]?.createdAt ?? a.createdAt;
+      const daysInStage = Math.floor((now - new Date(lastChange).getTime()) / 86_400_000);
+      const currency = a.invoices[0]?.currency ?? 'AED';
+
+      const reasons: string[] = [];
+      if (outstanding.gt(0)) reasons.push(`Owes ${outstanding.toFixed(2)} ${currency}`);
+      if (daysInStage >= STUCK_DAYS) reasons.push(`${daysInStage} days without progress`);
+      if (!a.moodleUserId && POST_PAY.includes(a.stage)) reasons.push('Paid but not in Moodle');
+      if (reasons.length === 0) continue;
+
+      rows.push({
+        id: a.id,
+        name: `${a.firstName} ${a.lastName}`.trim(),
+        stage: a.stage,
+        program: a.chosenProgram?.name ?? null,
+        outstanding: outstanding.toFixed(2),
+        currency,
+        daysInStage,
+        reasons,
+      });
+    }
+    rows.sort((x, y) => Number(y.outstanding) - Number(x.outstanding) || y.daysInStage - x.daysInStage);
+    return rows;
+  }
+
   async universityBalance(universityId: string) {
     const forwards = await this.prisma.forward.findMany({ where: { universityId } });
     const byCurrency: Record<string, Prisma.Decimal> = {};

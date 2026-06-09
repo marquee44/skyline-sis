@@ -20,7 +20,11 @@ const STAGE_LABEL: Record<string, string> = {
   graduated: 'Graduated',
 };
 
-const MOODLE_URL = 'https://lms.skyline-as.ae';
+// Link to Moodle's login (not the homepage): the SIS and Moodle have separate
+// logins, so the homepage shows whatever Moodle session the browser already has.
+// Sending students to /login prompts them to sign in as themselves. (Proper fix:
+// SSO via Authentik — roadmap.)
+const MOODLE_URL = 'https://lms.skyline-as.ae/login/index.php';
 
 export default function PortalPage() {
   const router = useRouter();
@@ -125,9 +129,12 @@ export default function PortalPage() {
       </Card>
 
       {applicant.moodleUserId && (
-        <a href={MOODLE_URL} target="_blank" rel="noreferrer" className="inline-block rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">
-          Go to my courses (Moodle) →
-        </a>
+        <div className="space-y-1">
+          <a href={MOODLE_URL} target="_blank" rel="noreferrer" className="inline-block rounded-md bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700">
+            Go to my courses (Moodle) →
+          </a>
+          <p className="text-xs text-slate-400">Sign in to Moodle with your own email ({applicant.email}).</p>
+        </div>
       )}
     </main>
   );

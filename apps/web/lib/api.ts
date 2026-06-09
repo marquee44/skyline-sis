@@ -201,6 +201,17 @@ export interface FinanceReport {
   outstanding: FinanceReportRow[];
 }
 
+export interface AtRiskRow {
+  id: string;
+  name: string;
+  stage: ApplicantStage;
+  program: string | null;
+  outstanding: string;
+  currency: string;
+  daysInStage: number;
+  reasons: string[];
+}
+
 export interface StudentOverviewRow {
   id: string;
   name: string;

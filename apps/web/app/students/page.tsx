@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, ApiError, getToken, setToken, type StudentOverviewRow } from '@/lib/api';
+import { api, ApiError, getToken, setToken, type StudentOverviewRow, type AtRiskRow } from '@/lib/api';
 
 // Stage labels + ordering, mirrored from the pipeline.
 const STAGE_LABEL: Record<string, string> = {
@@ -26,6 +26,7 @@ const STAGE_LABEL: Record<string, string> = {
 export default function StudentsOverviewPage() {
   const router = useRouter();
   const [rows, setRows] = useState<StudentOverviewRow[]>([]);
+  const [atRisk, setAtRisk] = useState<AtRiskRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stageFilter, setStageFilter] = useState<string>('');
@@ -33,8 +34,11 @@ export default function StudentsOverviewPage() {
 
   useEffect(() => {
     if (!getToken()) { router.push('/login'); return; }
-    api.get<StudentOverviewRow[]>('/students/overview')
-      .then(setRows)
+    Promise.all([
+      api.get<StudentOverviewRow[]>('/students/overview'),
+      api.get<AtRiskRow[]>('/reports/at-risk'),
+    ])
+      .then(([ov, ar]) => { setRows(ov); setAtRisk(ar); })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) { setToken(null); router.push('/login'); return; }
         setError(err instanceof Error ? err.message : 'Failed to load');
@@ -77,6 +81,23 @@ export default function StudentsOverviewPage() {
       </header>
 
       {error && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p>}
+
+      {atRisk.length > 0 && (
+        <section className="rounded-md border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950/30">
+          <h2 className="mb-2 text-sm font-semibold text-amber-800 dark:text-amber-300">⚠️ Needs attention ({atRisk.length})</h2>
+          <ul className="space-y-1 text-sm">
+            {atRisk.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center gap-2">
+                <a href={`/applicants/${a.id}`} className="font-medium text-sky-700 hover:underline dark:text-sky-400">{a.name}</a>
+                <span className="text-xs text-slate-500">{STAGE_LABEL[a.stage] ?? a.stage}{a.program ? ` · ${a.program}` : ''}</span>
+                {a.reasons.map((r, i) => (
+                  <span key={i} className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900 dark:text-amber-200">{r}</span>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         <input
