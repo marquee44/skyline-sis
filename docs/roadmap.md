@@ -50,8 +50,11 @@ Effort key: **S** ≈ hours, **M** ≈ a few days, **L** ≈ 1–2 weeks.
   `GET /applicants/:id/degree-audit` (staff), in `/me/overview` (student portal "My
   progress" bar), and a progress line on the staff Semesters panel. Auto-advances the
   applicant to `graduated` when every program term is enrolled. Verified E2E.
-- **Transcript / academic record (PDF)** — turn the grades we already read from Moodle into
-  an official per-student transcript + the university export. **(M)**
+- **Transcript / academic record** — ✅ DONE (2026-06-09). `readback.transcript()` →
+  per-course grade + completion. Staff: `GET /applicants/:id/moodle/transcript`; student:
+  `GET /me/transcript` + printable `/portal/transcript` page (Print/Save-PDF). Wired via a
+  controller INSIDE MoodleModule (a separate module importing MoodleModule deadlocks boot —
+  see deployment notes). Grades show "—" until faculty grade the course in Moodle.
 
 ## Tier 3 — Business operations & finance depth
 
