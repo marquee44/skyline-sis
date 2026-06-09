@@ -1,9 +1,12 @@
 import {
   IsEmail,
   IsEnum,
+  IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
+  Min,
   MinLength,
 } from 'class-validator';
 import { ApplicantStage } from '@skyline/db';
@@ -58,6 +61,12 @@ export class UpdateApplicantDto {
 
   @IsOptional() @IsString()
   assignedAdvisorId?: string;
+
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100)
+  scholarshipPercent?: number;
+
+  @IsOptional() @IsString() @MaxLength(200)
+  scholarshipNote?: string;
 }
 
 export class TransitionStageDto {

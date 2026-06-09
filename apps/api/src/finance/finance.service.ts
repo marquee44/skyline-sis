@@ -338,6 +338,7 @@ export class FinanceService {
       orderBy: { sequence: 'asc' },
       include: { _count: { select: { courses: true } }, enrollments: { where: { applicantId } } },
     });
+    const pct = new Prisma.Decimal(applicant.scholarshipPercent ?? 0);
     const rows = await Promise.all(
       terms.map(async (t) => {
         const te = t.enrollments[0];
@@ -351,11 +352,14 @@ export class FinanceService {
           }
         }
         const status = (te?.status ?? 'pending') as string;
+        const netFee = t.tuitionTotal.times(new Prisma.Decimal(100).minus(pct)).dividedBy(100);
         return {
           termId: t.id,
           name: t.name,
           sequence: t.sequence,
           fee: t.tuitionTotal.toFixed(2),
+          scholarshipPercent: pct.toFixed(2),
+          netFee: netFee.toDecimalPlaces(2).toFixed(2),
           currency: t.tuitionCurrency,
           courses: t._count.courses,
           status,
@@ -438,12 +442,15 @@ export class FinanceService {
       where: { applicantId, termId, status: { not: InvoiceStatus.cancelled } },
     });
     if (existing) return existing;
+    // Apply the student's scholarship/discount to the term fee.
+    const pct = new Prisma.Decimal(applicant.scholarshipPercent ?? 0);
+    const amountTotal = term.tuitionTotal.times(new Prisma.Decimal(100).minus(pct)).dividedBy(100).toDecimalPlaces(2);
     const invoice = await this.prisma.invoice.create({
       data: {
         applicantId,
         programId: term.programId,
         termId,
-        amountTotal: term.tuitionTotal,
+        amountTotal,
         currency: term.tuitionCurrency,
         status: InvoiceStatus.issued,
         issuedAt: new Date(),

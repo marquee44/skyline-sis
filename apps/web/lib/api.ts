@@ -175,6 +175,8 @@ export interface ApplicantTermRow {
   name: string;
   sequence: number;
   fee: string;
+  scholarshipPercent: string;
+  netFee: string;
   currency: string;
   courses: number;
   status: 'pending' | 'invoiced' | 'paid' | 'enrolled' | string;
@@ -288,6 +290,8 @@ export interface ApplicantDetail extends Applicant {
   chosenProgram?: { id: string; name: string } | null;
   choiceAdvisorNote?: string | null;
   moodleUserId?: number | null;
+  scholarshipPercent?: string;
+  scholarshipNote?: string | null;
   stageTransitions?: StageTransition[];
 }
 

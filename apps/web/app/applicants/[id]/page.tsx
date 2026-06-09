@@ -125,6 +125,9 @@ export default function ApplicantDetailPage() {
       {/* Student login (staff provisions the student's portal account) */}
       <StudentLoginPanel applicantId={id} email={a.email} />
 
+      {/* Scholarship / discount */}
+      <ScholarshipPanel applicant={a} onSave={(pct, note) => act(() => api.patch(`/applicants/${id}`, { scholarshipPercent: pct, scholarshipNote: note || undefined }))} />
+
       {/* Semesters (per-term billing + enrolment) */}
       <Panel title="Semesters">
         {terms.length === 0 ? (
@@ -257,6 +260,26 @@ function UploadButton({ documentId, onDone, setError }: { documentId: string; on
   );
 }
 
+function ScholarshipPanel({ applicant, onSave }: { applicant: ApplicantDetail; onSave: (pct: number, note: string) => void }) {
+  const [pct, setPct] = useState(applicant.scholarshipPercent ?? '0');
+  const [note, setNote] = useState(applicant.scholarshipNote ?? '');
+  const active = Number(applicant.scholarshipPercent ?? 0) > 0;
+  return (
+    <Panel title="Scholarship / discount">
+      <p className="text-sm text-slate-500">
+        A percentage off every semester invoice. {active ? <span className="font-medium text-emerald-700">Currently {applicant.scholarshipPercent}% off.</span> : 'None applied.'}
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input className={`${inputCls} w-24`} type="number" min="0" max="100" step="0.5" value={pct} onChange={(e) => setPct(e.target.value)} />
+        <span className="text-sm text-slate-400">% off</span>
+        <input className={`${inputCls} w-64`} placeholder="Note (e.g. merit scholarship)" value={note} onChange={(e) => setNote(e.target.value)} />
+        <button className={btn} onClick={() => onSave(Number(pct), note)}>Save</button>
+      </div>
+      <p className="text-xs text-slate-400">Applies to semesters invoiced after saving (already-issued invoices are unchanged).</p>
+    </Panel>
+  );
+}
+
 function StudentLoginPanel({ applicantId, email }: { applicantId: string; email: string }) {
   const [creds, setCreds] = useState<{ email: string; tempPassword: string } | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -308,7 +331,14 @@ function TermRow({ applicantId, term, isAdmin, act }: {
     <li className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
       <span className="font-medium">{term.name}</span>
       <span className={`rounded-full px-2 py-0.5 text-xs ${statusColor[term.status] ?? 'bg-slate-100 text-slate-600'}`}>{term.status}</span>
-      <span className="text-slate-400">{term.fee} {term.currency} · {term.courses} courses{Number(term.paid) > 0 ? ` · paid ${term.paid}` : ''}</span>
+      <span className="text-slate-400">
+        {Number(term.scholarshipPercent) > 0 ? (
+          <><span className="line-through">{term.fee}</span> {term.netFee} {term.currency} <span className="text-emerald-600">(−{term.scholarshipPercent}%)</span></>
+        ) : (
+          <>{term.fee} {term.currency}</>
+        )}
+        {' · '}{term.courses} courses{Number(term.paid) > 0 ? ` · paid ${term.paid}` : ''}
+      </span>
       <span className="ml-auto flex flex-wrap items-center gap-2">
         {term.status === 'pending' && term.locked && (
           <span className="text-xs text-slate-400" title="Pay the earlier semester(s) first">🔒 locked</span>

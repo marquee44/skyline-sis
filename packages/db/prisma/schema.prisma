@@ -356,6 +356,10 @@ model Applicant {
   confirmedAt         DateTime? @map("confirmed_at") @db.Timestamptz(6)
   choiceAdvisorNote   String?   @map("choice_advisor_note")
 
+  // Scholarship/discount applied to every term invoice (0–100 %). Staff-set.
+  scholarshipPercent  Decimal  @default(0) @map("scholarship_percent") @db.Decimal(5, 2)
+  scholarshipNote     String?  @map("scholarship_note")
+
   moodleUserId    Int?    @map("moodle_user_id")
 
   consultations    Consultation[]
