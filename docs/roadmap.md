@@ -45,9 +45,11 @@ Effort key: **S** ≈ hours, **M** ≈ a few days, **L** ≈ 1–2 weeks.
 - **Attendance read-back from Moodle** — faculty mark attendance in Moodle (its Attendance
   activity); the SIS pulls it for **UAE visa compliance**, at-risk flags, and progression.
   Don't build attendance *entry* in the SIS. **(M, needs Moodle Attendance + a WS function)**
-- **Degree audit / graduation tracking** ⭐ — requirements (terms/credits) vs. completed,
-  "on track to graduate?", auto-advance to `graduated`. Natural next layer on the per-term
-  model; uses program `ects` + term data we already have. **(M)**
+- **Degree audit / graduation tracking** — ✅ DONE (2026-06-09). `degreeAudit(applicantId)`
+  → semesters completed/remaining, %, current/next term, graduation-eligible. Exposed at
+  `GET /applicants/:id/degree-audit` (staff), in `/me/overview` (student portal "My
+  progress" bar), and a progress line on the staff Semesters panel. Auto-advances the
+  applicant to `graduated` when every program term is enrolled. Verified E2E.
 - **Transcript / academic record (PDF)** — turn the grades we already read from Moodle into
   an official per-student transcript + the university export. **(M)**
 

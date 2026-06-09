@@ -40,7 +40,7 @@ export default function PortalPage() {
   if (error) return <main className="mx-auto max-w-2xl px-6 py-10"><p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p></main>;
   if (!data) return <p className="p-8 text-slate-500">Loading…</p>;
 
-  const { applicant, terms, balance, documents } = data;
+  const { applicant, terms, balance, documents, audit } = data;
   const owes = Number(balance.outstanding) > 0;
 
   return (
@@ -55,6 +55,26 @@ export default function PortalPage() {
         </div>
         <button onClick={() => { setToken(null); router.push('/login'); }} className="text-sm text-slate-500 hover:underline">Sign out</button>
       </header>
+
+      {/* Degree progress */}
+      {audit.totalTerms > 0 && (
+        <Card title="My progress">
+          <div className="flex items-center justify-between text-sm">
+            <span>
+              {audit.graduated
+                ? '🎓 Graduated — all semesters complete!'
+                : `${audit.completed} of ${audit.totalTerms} semesters complete`}
+            </span>
+            <span className="font-medium">{audit.percent}%</span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div className={`h-full ${audit.graduated ? 'bg-emerald-500' : 'bg-sky-500'}`} style={{ width: `${audit.percent}%` }} />
+          </div>
+          {!audit.graduated && audit.nextTerm && (
+            <p className="text-xs text-slate-400">Next up: {audit.nextTerm}</p>
+          )}
+        </Card>
+      )}
 
       {/* Semesters */}
       <Card title="My semesters">

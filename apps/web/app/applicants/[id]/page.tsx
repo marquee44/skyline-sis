@@ -130,11 +130,17 @@ export default function ApplicantDetailPage() {
         {terms.length === 0 ? (
           <p className="text-sm text-slate-400">No terms — confirm a program first (the chosen program’s semesters appear here).</p>
         ) : (
+          <>
+          <p className="text-sm text-slate-500">
+            Progress: {terms.filter((t) => t.status === 'enrolled').length} of {terms.length} semesters enrolled
+            {terms.length > 0 && terms.every((t) => t.status === 'enrolled') && ' · 🎓 all complete'}
+          </p>
           <ul className="space-y-2">
             {terms.map((t) => (
               <TermRow key={t.termId} applicantId={id} term={t} isAdmin={me?.role === 'admin'} act={act} />
             ))}
           </ul>
+          </>
         )}
       </Panel>
 

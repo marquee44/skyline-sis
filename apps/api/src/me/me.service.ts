@@ -31,7 +31,7 @@ export class MeService {
     });
     if (!applicant) throw new ForbiddenException('Profile not found');
 
-    const [terms, balance, documents] = await Promise.all([
+    const [terms, balance, documents, audit] = await Promise.all([
       this.finance.listApplicantTerms(applicantId),
       this.finance.applicantBalance(applicantId),
       this.prisma.document.findMany({
@@ -39,7 +39,8 @@ export class MeService {
         select: { id: true, type: true, status: true },
         orderBy: { createdAt: 'asc' },
       }),
+      this.finance.degreeAudit(applicantId),
     ]);
-    return { applicant, terms, balance, documents };
+    return { applicant, terms, balance, documents, audit };
   }
 }

@@ -25,6 +25,10 @@ export class FinanceController {
   invoiceTerm(@Param('id') id: string, @Param('termId') termId: string) {
     return this.finance.invoiceTerm(id, termId);
   }
+  @Get('applicants/:id/degree-audit')
+  degreeAudit(@Param('id') id: string) {
+    return this.finance.degreeAudit(id);
+  }
 
   // Invoices
   @Get('invoices')

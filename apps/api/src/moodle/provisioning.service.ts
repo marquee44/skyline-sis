@@ -119,6 +119,19 @@ export class ProvisioningService implements OnModuleInit {
       });
       // Once a semester is paid + enrolled the student is, by definition, active.
       await this.advanceToActiveStudent(applicantId, term.name);
+      // Graduate once every semester of the program is enrolled.
+      const totalTerms = await this.prisma.term.count({ where: { programId: term.programId } });
+      const doneTerms = await this.prisma.termEnrollment.count({
+        where: { applicantId, status: TermEnrollmentStatus.enrolled, term: { programId: term.programId } },
+      });
+      if (totalTerms > 0 && doneTerms >= totalTerms) {
+        const a = await this.prisma.applicant.findUnique({ where: { id: applicantId } });
+        if (a?.stage === ApplicantStage.active_student) {
+          await this.applicants
+            .transition(applicantId, ApplicantStage.graduated, { note: 'all semesters completed' })
+            .catch((e) => this.logger.warn(`graduate failed: ${(e as Error).message}`));
+        }
+      }
     }
     return { moodleUserId, enrolled, pending };
   }

@@ -122,6 +122,19 @@ export interface AuthUser {
   applicantId?: string | null;
 }
 
+export interface DegreeAudit {
+  program: string | null;
+  level: string | null;
+  totalTerms: number;
+  completed: number;
+  remaining: number;
+  percent: number;
+  currentTerm: string | null;
+  nextTerm: string | null;
+  graduationEligible: boolean;
+  graduated: boolean;
+}
+
 export interface MeOverview {
   applicant: {
     id: string;
@@ -136,6 +149,7 @@ export interface MeOverview {
   terms: ApplicantTermRow[];
   balance: Balance;
   documents: { id: string; type: string; status: string }[];
+  audit: DegreeAudit;
 }
 
 export interface CatalogTerm {

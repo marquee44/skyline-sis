@@ -307,6 +307,42 @@ export class FinanceService {
     return rows;
   }
 
+  /** Progress toward completing the chosen program: semesters done vs. remaining. */
+  async degreeAudit(applicantId: string) {
+    const applicant = await this.prisma.applicant.findUnique({
+      where: { id: applicantId },
+      select: { stage: true, chosenProgramId: true, chosenProgram: { select: { name: true, level: true } } },
+    });
+    const empty = {
+      program: applicant?.chosenProgram?.name ?? null,
+      level: applicant?.chosenProgram?.level ?? null,
+      totalTerms: 0, completed: 0, remaining: 0, percent: 0,
+      currentTerm: null as string | null, nextTerm: null as string | null,
+      graduationEligible: false, graduated: applicant?.stage === ApplicantStage.graduated,
+    };
+    if (!applicant?.chosenProgramId) return empty;
+    const terms = await this.prisma.term.findMany({
+      where: { programId: applicant.chosenProgramId },
+      orderBy: { sequence: 'asc' },
+      include: { enrollments: { where: { applicantId } } },
+    });
+    const total = terms.length;
+    const isDone = (t: (typeof terms)[number]) => t.enrollments[0]?.status === TermEnrollmentStatus.enrolled;
+    const completed = terms.filter(isDone).length;
+    const lastDone = [...terms].reverse().find(isDone);
+    const next = terms.find((t) => !isDone(t));
+    return {
+      ...empty,
+      totalTerms: total,
+      completed,
+      remaining: total - completed,
+      percent: total ? Math.round((completed / total) * 100) : 0,
+      currentTerm: lastDone?.name ?? null,
+      nextTerm: next?.name ?? null,
+      graduationEligible: total > 0 && completed === total,
+    };
+  }
+
   /** Issue an invoice for one term (per-semester billing). Idempotent per term. */
   async invoiceTerm(applicantId: string, termId: string) {
     const applicant = await this.prisma.applicant.findUnique({ where: { id: applicantId } });
