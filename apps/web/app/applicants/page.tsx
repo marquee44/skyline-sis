@@ -85,8 +85,10 @@ export default function ApplicantsPage() {
         <h1 className="text-2xl font-bold">Applicants ({applicants.length})</h1>
         <nav className="flex gap-4 text-sm text-slate-500">
           <a href="/pipeline" className="hover:underline">Pipeline</a>
+          <a href="/students" className="hover:underline">Students</a>
           <a href="/advisors" className="hover:underline">Advisors</a>
           <a href="/catalog" className="hover:underline">Catalog</a>
+          <a href="/account" className="hover:underline">Account</a>
           <button onClick={() => { setToken(null); router.push('/login'); }} className="hover:underline">
             Sign out
           </button>
