@@ -122,6 +122,9 @@ export default function ApplicantDetailPage() {
         <AddDocForm onAdd={(type) => act(() => api.post('/documents', { applicantId: id, type }))} />
       </Panel>
 
+      {/* Student login (staff provisions the student's portal account) */}
+      <StudentLoginPanel applicantId={id} email={a.email} />
+
       {/* Semesters (per-term billing + enrolment) */}
       <Panel title="Semesters">
         {terms.length === 0 ? (
@@ -245,6 +248,40 @@ function UploadButton({ documentId, onDone, setError }: { documentId: string; on
         }}
       />
     </label>
+  );
+}
+
+function StudentLoginPanel({ applicantId, email }: { applicantId: string; email: string }) {
+  const [creds, setCreds] = useState<{ email: string; tempPassword: string } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Panel title="Student portal login">
+      <p className="text-sm text-slate-500">
+        Create (or reset) this student&rsquo;s login for the self-service portal. They sign in with{' '}
+        <span className="font-medium">{email}</span> and the temporary password below, then set their own.
+      </p>
+      {err && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{err}</p>}
+      {creds && (
+        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-950/40">
+          Login ready — <span className="font-medium">{creds.email}</span> · temp password:{' '}
+          <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">{creds.tempPassword}</code>
+          <span className="text-slate-400"> (share securely; they change it on first login)</span>
+        </p>
+      )}
+      <button
+        className={btnAlt}
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true); setErr(null);
+          try { setCreds(await api.post(`/auth/students/${applicantId}/login`, {})); }
+          catch (e) { setErr(e instanceof Error ? e.message : 'Failed'); }
+          finally { setBusy(false); }
+        }}
+      >
+        {busy ? 'Creating…' : creds ? 'Reset password' : 'Create login'}
+      </button>
+    </Panel>
   );
 }
 

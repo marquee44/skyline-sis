@@ -1,6 +1,8 @@
 import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
+import { UserRole } from '@skyline/db';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from './roles';
 
@@ -18,11 +20,40 @@ export class AuthService {
     const ok = await bcrypt.compare(password, hash);
     if (!user || !ok) throw new UnauthorizedException('Invalid credentials');
 
-    const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role };
+    const payload: JwtPayload = { sub: user.id, email: user.email, role: user.role, applicantId: user.applicantId };
     return {
       accessToken: await this.jwt.signAsync(payload),
-      user: { id: user.id, email: user.email, role: user.role },
+      user: { id: user.id, email: user.email, role: user.role, applicantId: user.applicantId },
     };
+  }
+
+  /**
+   * Create (or reset) a student login for an applicant and return a one-time
+   * temporary password for the staff member to hand over. Admin/staff action.
+   */
+  async createStudentLogin(applicantId: string) {
+    const applicant = await this.prisma.applicant.findUnique({ where: { id: applicantId } });
+    if (!applicant) throw new BadRequestException('Applicant not found');
+    const tempPassword = randomBytes(12).toString('base64').replace(/[^A-Za-z0-9]/g, '').slice(0, 14);
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    const existing = await this.prisma.user.findFirst({
+      where: { OR: [{ applicantId }, { email: applicant.email }] },
+    });
+    if (existing && existing.applicantId && existing.applicantId !== applicantId) {
+      throw new BadRequestException('That email already belongs to another account');
+    }
+    if (existing) {
+      await this.prisma.user.update({
+        where: { id: existing.id },
+        data: { passwordHash, applicantId, role: UserRole.student },
+      });
+    } else {
+      await this.prisma.user.create({
+        data: { email: applicant.email, passwordHash, role: UserRole.student, applicantId },
+      });
+    }
+    return { email: applicant.email, tempPassword };
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {

@@ -119,6 +119,23 @@ export interface AuthUser {
   id: string;
   email: string;
   role: 'student' | 'staff' | 'admin';
+  applicantId?: string | null;
+}
+
+export interface MeOverview {
+  applicant: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    stage: ApplicantStage;
+    programChoiceStatus: string;
+    moodleUserId: number | null;
+    chosenProgram: { id: string; name: string; level: string } | null;
+  };
+  terms: ApplicantTermRow[];
+  balance: Balance;
+  documents: { id: string; type: string; status: string }[];
 }
 
 export interface CatalogTerm {

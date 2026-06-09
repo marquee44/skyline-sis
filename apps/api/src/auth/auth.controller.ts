@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard, RolesGuard } from './guards';
 import { Roles } from './roles';
 import { AuthService } from './auth.service';
@@ -34,11 +34,12 @@ export class AuthController {
     return this.auth.changePassword(req.user.id, dto.currentPassword, dto.newPassword);
   }
 
-  // Example of a staff-only route, proving the roles guard is wired.
+  // Admin/staff: create (or reset) a student login for an applicant. Returns a
+  // one-time temp password to hand over (or email, once mail is live).
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('staff', 'admin')
-  @Get('staff-check')
-  staffCheck() {
-    return { ok: true, scope: 'staff' };
+  @Post('students/:applicantId/login')
+  createStudentLogin(@Param('applicantId') applicantId: string) {
+    return this.auth.createStudentLogin(applicantId);
   }
 }

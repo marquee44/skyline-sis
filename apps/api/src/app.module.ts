@@ -16,6 +16,7 @@ import { ProgramSelectionModule } from './program-selection/program-selection.mo
 import { DocumentsModule } from './documents/documents.module';
 import { FinanceModule } from './finance/finance.module';
 import { MoodleModule } from './moodle/moodle.module';
+import { MeModule } from './me/me.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { MoodleModule } from './moodle/moodle.module';
     DocumentsModule,
     FinanceModule,
     MoodleModule,
+    MeModule,
   ],
 })
 export class AppModule {}

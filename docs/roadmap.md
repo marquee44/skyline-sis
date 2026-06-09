@@ -27,10 +27,12 @@ Effort key: **S** ≈ hours, **M** ≈ a few days, **L** ≈ 1–2 weeks.
 
 ## Tier 1 — Highest user value
 
-- **Student portal (self-service)** ⭐ #1 gap. Students log in (the `student` role already
-  exists) to see their stage, **semesters + what's due/paid**, documents, and official
-  grades; pay a term; deep-link to Moodle for coursework. The keystone that turns this from
-  an admin tool into the student's administrative home. **(L)**
+- **Student portal (self-service)** — ✅ v1 DONE (2026-06-09). Staff create a login
+  (`POST /auth/students/:id/login` → temp password; button on the applicant page). Students
+  sign in → `/portal`, scoped to their own record via `applicantId` in the JWT and the
+  `/me/overview` endpoint: stage, semesters (status/fee/paid), balance, documents, Moodle
+  deep-link. Verified students can't reach staff endpoints (403). **Remaining:** online
+  pay (needs the gateway below) + grades/transcript view (Tier 2).
 - **Online payment gateway + receipts** — integrate a UAE-friendly gateway (Telr / Network
   International / Stripe). Student pays a term online → payment auto-recorded → PDF receipt.
   Closes the finance loop (today payments are keyed by hand). Pairs with the portal. **(M–L)**

@@ -8,5 +8,6 @@ import { ApplicantsModule } from '../applicants/applicants.module';
   imports: [AuthModule, ApplicantsModule],
   controllers: [FinanceController],
   providers: [FinanceService],
+  exports: [FinanceService],
 })
 export class FinanceModule {}

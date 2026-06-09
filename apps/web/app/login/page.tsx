@@ -21,7 +21,8 @@ export default function LoginPage() {
         password,
       });
       setToken(res.accessToken);
-      router.push('/catalog');
+      // Students land on their portal; staff/admin on the pipeline.
+      router.push(res.user.role === 'student' ? '/portal' : '/pipeline');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
