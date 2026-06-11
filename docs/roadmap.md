@@ -62,6 +62,12 @@ Effort key: **S** ≈ hours, **M** ≈ a few days, **L** ≈ 1–2 weeks.
   `scholarshipPercent` (+ note) set via the applicant page; auto-applied to every term
   invoice (`invoiceTerm` bills fee − %). Term rows + portal show gross struck-through + net.
   Verified: 20% → a 5000 semester is invoiced 4000.
+- **Admin command-center dashboard** — ✅ DONE (2026-06-09). Dark-themed `/dashboard`
+  (staff landing): KPI cards (active/pipeline/new+trend/collected+trend/outstanding/
+  conversion), money (collected vs outstanding vs forwarded = margin), pipeline funnel,
+  revenue-by-program donut (SVG, no chart dep), **next-semester renewal forecast**,
+  upcoming consultations, recent payments, and the at-risk list. `GET /dashboard`.
+
 - **Custom reports / analytics** — ✅ PARTLY DONE (2026-06-09). `/reports` page:
   revenue by program + by semester + outstanding balances, each CSV-exportable
   (`GET /reports/finance`). Plus an at-risk "Needs attention" card on the Students
