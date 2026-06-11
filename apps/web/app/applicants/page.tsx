@@ -11,6 +11,7 @@ import {
   type ApplicantStage,
   type StageTransition,
 } from '@/lib/api';
+import { Shell, Card, dInput } from '@/components/Shell';
 
 const STAGE_LABEL: Record<ApplicantStage, string> = {
   intake_started: 'Intake started',
@@ -32,9 +33,9 @@ const STAGE_LABEL: Record<ApplicantStage, string> = {
 
 function stageColor(s: ApplicantStage): string {
   if (s === 'graduated' || s === 'active_student' || s === 'enrolled')
-    return 'bg-emerald-100 text-emerald-700';
-  if (s === 'withdrawn' || s === 'rejected') return 'bg-rose-100 text-rose-700';
-  return 'bg-sky-100 text-sky-700';
+    return 'bg-emerald-500/15 text-emerald-300';
+  if (s === 'withdrawn' || s === 'rejected') return 'bg-rose-500/15 text-rose-300';
+  return 'bg-sky-500/15 text-sky-300';
 }
 
 export default function ApplicantsPage() {
@@ -77,70 +78,45 @@ export default function ApplicantsPage() {
     }
   }
 
-  if (loading) return <p className="p-8 text-slate-500">Loading…</p>;
+  if (loading) return <Shell title="Applicants"><p className="text-slate-400">Loading…</p></Shell>;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-8 px-6 py-10">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Applicants ({applicants.length})</h1>
-        <nav className="flex gap-4 text-sm text-slate-500">
-          <a href="/dashboard" className="hover:underline">Dashboard</a>
-          <a href="/pipeline" className="hover:underline">Pipeline</a>
-          <a href="/students" className="hover:underline">Students</a>
-          <a href="/advisors" className="hover:underline">Advisors</a>
-          <a href="/catalog" className="hover:underline">Catalog</a>
-          <a href="/account" className="hover:underline">Account</a>
-          <button onClick={() => { setToken(null); router.push('/login'); }} className="hover:underline">
-            Sign out
-          </button>
-        </nav>
-      </header>
-      {error && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p>}
+    <Shell title="Applicants" subtitle={`${applicants.length} total`}>
+      <div className="space-y-6">
+        {error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>}
 
-      <CreateApplicant onChange={reload} setError={setError} />
+        <CreateApplicant onChange={reload} setError={setError} />
 
-      <ul className="divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
-        {applicants.map((a) => (
-          <li key={a.id} className="px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <button
-                  onClick={() => setExpanded(expanded === a.id ? null : a.id)}
-                  className="font-medium hover:underline"
-                >
-                  {a.firstName} {a.lastName}
-                </button>
-                <span className="ml-2 text-sm text-slate-400">{a.email}</span>
-                <a href={`/applicants/${a.id}`} className="ml-2 text-xs text-sky-600 hover:underline">open →</a>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${stageColor(a.stage)}`}>
-                  {STAGE_LABEL[a.stage]}
-                </span>
-                {a.allowedNextStages.length > 0 && (
-                  <select
-                    className="rounded-md border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
-                    value=""
-                    onChange={(e) => {
-                      if (e.target.value) doTransition(a.id, e.target.value as ApplicantStage);
-                    }}
-                  >
-                    <option value="">Move to…</option>
-                    {a.allowedNextStages.map((s) => (
-                      <option key={s} value={s}>{STAGE_LABEL[s]}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            </div>
-            {expanded === a.id && <History applicantId={a.id} />}
-          </li>
-        ))}
-        {applicants.length === 0 && (
-          <li className="px-4 py-3 text-sm text-slate-400">No applicants yet.</li>
-        )}
-      </ul>
-    </main>
+        <Card title="All applicants">
+          <ul className="divide-y divide-slate-800">
+            {applicants.map((a) => (
+              <li key={a.id} className="py-3 first:pt-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <button onClick={() => setExpanded(expanded === a.id ? null : a.id)} className="font-medium text-slate-100 hover:text-purple-300">
+                      {a.firstName} {a.lastName}
+                    </button>
+                    <span className="ml-2 text-sm text-slate-500">{a.email}</span>
+                    <a href={`/applicants/${a.id}`} className="ml-2 text-xs text-purple-400 hover:underline">open →</a>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${stageColor(a.stage)}`}>{STAGE_LABEL[a.stage]}</span>
+                    {a.allowedNextStages.length > 0 && (
+                      <select className={`${dInput} py-1 text-xs`} value="" onChange={(e) => { if (e.target.value) doTransition(a.id, e.target.value as ApplicantStage); }}>
+                        <option value="">Move to…</option>
+                        {a.allowedNextStages.map((s) => <option key={s} value={s}>{STAGE_LABEL[s]}</option>)}
+                      </select>
+                    )}
+                  </div>
+                </div>
+                {expanded === a.id && <History applicantId={a.id} />}
+              </li>
+            ))}
+            {applicants.length === 0 && <li className="py-3 text-sm text-slate-500">No applicants yet.</li>}
+          </ul>
+        </Card>
+      </div>
+    </Shell>
   );
 }
 
@@ -151,7 +127,7 @@ function History({ applicantId }: { applicantId: string }) {
   }, [applicantId]);
   if (!items) return <p className="mt-2 text-xs text-slate-400">Loading history…</p>;
   return (
-    <ol className="mt-3 space-y-1 border-l-2 border-slate-200 pl-3 text-xs text-slate-500 dark:border-slate-700">
+    <ol className="mt-3 space-y-1 border-l-2 border-slate-700 pl-3 text-xs text-slate-400">
       {items.map((t) => (
         <li key={t.id}>
           <span className="font-medium">{t.fromStage ?? '—'} → {t.toStage}</span>
@@ -178,15 +154,14 @@ function CreateApplicant({
   const [f, setF] = useState(empty);
   const [open, setOpen] = useState(false);
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
-  const inputCls =
-    'rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900';
+  const inputCls = dInput;
   const lbl = (label: string, node: React.ReactNode) => (
-    <label className="block space-y-1"><span className="text-xs text-slate-500">{label}</span>{node}</label>
+    <label className="block space-y-1"><span className="text-xs text-slate-400">{label}</span>{node}</label>
   );
 
   return (
     <form
-      className="space-y-3 rounded-md border border-slate-200 p-4 dark:border-slate-800"
+      className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4"
       onSubmit={async (e) => {
         e.preventDefault();
         try {
@@ -205,7 +180,7 @@ function CreateApplicant({
         {lbl('Email', <input className={`${inputCls} w-full`} type="email" required value={f.email} onChange={(e) => set('email', e.target.value)} />)}
       </div>
       {open && (
-        <div className="grid grid-cols-1 gap-2 border-t border-slate-100 pt-3 dark:border-slate-800 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 border-t border-slate-800 pt-3 sm:grid-cols-3">
           {lbl('Phone', <input className={`${inputCls} w-full`} value={f.phone} onChange={(e) => set('phone', e.target.value)} />)}
           {lbl('Date of birth', <input className={`${inputCls} w-full`} type="date" value={f.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} />)}
           {lbl('Gender', <select className={`${inputCls} w-full`} value={f.gender} onChange={(e) => set('gender', e.target.value)}><option value="">—</option><option>Female</option><option>Male</option><option>Other</option></select>)}
@@ -218,7 +193,7 @@ function CreateApplicant({
         </div>
       )}
       <div className="flex items-center gap-3">
-        <button className="rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700" type="submit">
+        <button className="rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-500" type="submit">
           Add applicant
         </button>
         <button type="button" className="text-xs text-sky-600 hover:underline" onClick={() => setOpen((o) => !o)}>

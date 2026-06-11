@@ -16,11 +16,12 @@ import {
   type ApplicantTermRow,
   type Transcript,
 } from '@/lib/api';
+import { Shell } from '@/components/Shell';
 
 const DOC_TYPES = ['passport', 'emirates_id', 'prior_diploma', 'transcript', 'photo', 'legalization', 'other'];
-const inputCls = 'rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900';
-const btn = 'rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50';
-const btnAlt = 'rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 dark:border-slate-700';
+const inputCls = 'rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-purple-500 focus:outline-none';
+const btn = 'rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50';
+const btnAlt = 'rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800';
 
 export default function ApplicantDetailPage() {
   const router = useRouter();
@@ -63,20 +64,22 @@ export default function ApplicantDetailPage() {
     catch (err) { setError(err instanceof Error ? err.message : 'Action failed'); }
   }
 
-  if (!a) return <p className="p-8 text-slate-500">{error ?? 'Loading…'}</p>;
+  if (!a) return <Shell title="Applicant"><p className="text-slate-400">{error ?? 'Loading…'}</p></Shell>;
 
   return (
-    <main className="mx-auto max-w-3xl space-y-8 px-6 py-10">
-      <header className="space-y-1">
-        <a href="/pipeline" className="text-sm text-slate-500 hover:underline">← Pipeline</a>
-        <h1 className="text-2xl font-bold">{a.firstName} {a.lastName}</h1>
-        <p className="text-sm text-slate-500">{a.email} · {a.residenceCity ?? '—'} · from {a.countryOfOrigin ?? '—'}</p>
-        <p className="text-sm">
-          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">{a.stage}</span>{' '}
-          <span className="text-slate-400">program: {a.programChoiceStatus}</span>
-        </p>
-      </header>
-      {error && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p>}
+    <Shell
+      title={`${a.firstName} ${a.lastName}`}
+      subtitle={`${a.email} · ${a.residenceCity ?? '—'} · from ${a.countryOfOrigin ?? '—'}`}
+      actions={
+        <span className="flex items-center gap-2 text-xs">
+          <span className="rounded-full bg-sky-500/15 px-2 py-0.5 font-medium text-sky-300">{a.stage}</span>
+          <span className="text-slate-500">program: {a.programChoiceStatus}</span>
+        </span>
+      }
+    >
+      <div className="mx-auto max-w-3xl space-y-6">
+        <a href="/applicants" className="text-sm text-slate-400 hover:text-white">← Applicants</a>
+      {error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>}
 
       {/* Profile details (view + edit) */}
       <DetailsPanel applicant={a} onSave={(patch) => act(() => api.patch(`/applicants/${id}`, patch))} />
@@ -117,11 +120,11 @@ export default function ApplicantDetailPage() {
           {docs.map((d) => (
             <li key={d.id} className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{d.type}</span>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs dark:bg-slate-800">{d.status}</span>
+              <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs">{d.status}</span>
               <UploadButton documentId={d.id} onDone={reload} setError={setError} />
-              {d.filePath && <a className="text-xs text-sky-600 hover:underline" href={`/api/documents/${d.id}/file`}>download</a>}
-              <button className="text-xs text-emerald-600 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'verified' }))}>verify</button>
-              <button className="text-xs text-rose-500 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'rejected' }))}>reject</button>
+              {d.filePath && <a className="text-xs text-purple-400 hover:underline" href={`/api/documents/${d.id}/file`}>download</a>}
+              <button className="text-xs text-emerald-300 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'verified' }))}>verify</button>
+              <button className="text-xs text-rose-300 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'rejected' }))}>reject</button>
             </li>
           ))}
           {docs.length === 0 && <li className="text-slate-400">No documents requested.</li>}
@@ -164,11 +167,11 @@ export default function ApplicantDetailPage() {
         <button className={btnAlt} onClick={() => act(() => api.post('/invoices', { applicantId: id }))}>Create invoice (from chosen program)</button>
         <ul className="space-y-2 text-sm">
           {invoices.map((inv) => (
-            <li key={inv.id} className="rounded-md border border-slate-200 p-2 dark:border-slate-800">
+            <li key={inv.id} className="rounded-md border border-slate-800 p-2">
               <div className="flex items-center justify-between">
                 <span>{inv.amountTotal} {inv.currency} · <span className="text-slate-400">{inv.status}</span></span>
                 <span className="flex gap-2">
-                  {inv.status === 'draft' && <button className="text-xs text-sky-600 hover:underline" onClick={() => act(() => api.post(`/invoices/${inv.id}/issue`, {}))}>issue</button>}
+                  {inv.status === 'draft' && <button className="text-xs text-purple-400 hover:underline" onClick={() => act(() => api.post(`/invoices/${inv.id}/issue`, {}))}>issue</button>}
                   <PayButton invoiceId={inv.id} onDone={reload} setError={setError} />
                 </span>
               </div>
@@ -194,20 +197,21 @@ export default function ApplicantDetailPage() {
 
       {/* History */}
       <Panel title="History">
-        <ol className="space-y-1 border-l-2 border-slate-200 pl-3 text-xs text-slate-500 dark:border-slate-700">
+        <ol className="space-y-1 border-l-2 border-slate-800 pl-3 text-xs text-slate-500 dark:border-slate-700">
           {a.stageTransitions?.map((t) => (
             <li key={t.id}>{t.fromStage ?? '—'} → {t.toStage}{t.note ? ` · ${t.note}` : ''} · {new Date(t.createdAt).toLocaleString()}</li>
           ))}
         </ol>
       </Panel>
-    </main>
+      </div>
+    </Shell>
   );
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="space-y-3 rounded-md border border-slate-200 p-4 dark:border-slate-800">
-      <h2 className="text-lg font-semibold">{title}</h2>
+    <section className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <h2 className="text-base font-semibold text-slate-200">{title}</h2>
       {children}
     </section>
   );
@@ -240,7 +244,7 @@ function AddDocForm({ onAdd }: { onAdd: (type: string) => void }) {
 
 function UploadButton({ documentId, onDone, setError }: { documentId: string; onDone: () => void; setError: (e: string | null) => void }) {
   return (
-    <label className="cursor-pointer text-xs text-sky-600 hover:underline">
+    <label className="cursor-pointer text-xs text-purple-400 hover:underline">
       upload
       <input
         type="file"
@@ -274,7 +278,7 @@ function ScholarshipPanel({ applicant, onSave }: { applicant: ApplicantDetail; o
   return (
     <Panel title="Scholarship / discount">
       <p className="text-sm text-slate-500">
-        A percentage off every semester invoice. {active ? <span className="font-medium text-emerald-700">Currently {applicant.scholarshipPercent}% off.</span> : 'None applied.'}
+        A percentage off every semester invoice. {active ? <span className="font-medium text-emerald-300">Currently {applicant.scholarshipPercent}% off.</span> : 'None applied.'}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <input className={`${inputCls} w-24`} type="number" min="0" max="100" step="0.5" value={pct} onChange={(e) => setPct(e.target.value)} />
@@ -332,7 +336,7 @@ function DetailsPanel({ applicant, onSave }: { applicant: ApplicantDetail; onSav
   if (!edit) {
     return (
       <Panel title="Details">
-        <div className="-mt-9 flex justify-end"><button className="text-xs text-sky-600 hover:underline" onClick={() => setEdit(true)}>edit</button></div>
+        <div className="-mt-9 flex justify-end"><button className="text-xs text-purple-400 hover:underline" onClick={() => setEdit(true)}>edit</button></div>
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
           <DField label="Email" value={applicant.email} />
           <DField label="Phone" value={applicant.phone} />
@@ -344,7 +348,7 @@ function DetailsPanel({ applicant, onSave }: { applicant: ApplicantDetail; onSav
           <DField label="Prior education" value={applicant.priorEducation} />
           <DField label="Interests" value={applicant.interests} />
         </dl>
-        <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2 border-t border-slate-100 pt-3 text-sm dark:border-slate-800 sm:grid-cols-2">
+        <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2 border-t border-slate-800 pt-3 text-sm dark:border-slate-800 sm:grid-cols-2">
           <DField label="Sponsor" value={applicant.sponsorName ? `${applicant.sponsorName}${applicant.sponsorContact ? ' · ' + applicant.sponsorContact : ''}` : null} />
           <DField label="Emergency contact" value={applicant.emergencyContactName ? `${applicant.emergencyContactName}${applicant.emergencyContactPhone ? ' · ' + applicant.emergencyContactPhone : ''}` : null} />
         </div>
@@ -386,13 +390,13 @@ function AcademicPanel({ applicantId, moodleUserId }: { applicantId: string; moo
   if (!moodleUserId) return null;
   return (
     <Panel title="Academic (grades from Moodle)">
-      {err && <p className="text-sm text-rose-600">{err}</p>}
+      {err && <p className="text-sm text-rose-300">{err}</p>}
       {!t ? <p className="text-sm text-slate-400">Loading grades…</p> : (
         <table className="w-full text-sm">
           <thead className="text-left text-xs uppercase text-slate-400"><tr><th className="py-1">Course</th><th className="py-1 text-right">Grade</th><th className="py-1 text-right">%</th><th className="py-1 text-right">Done</th></tr></thead>
           <tbody>
             {t.courses.map((c, i) => (
-              <tr key={i} className="border-t border-slate-100 dark:border-slate-800">
+              <tr key={i} className="border-t border-slate-800">
                 <td className="py-1">{c.course}</td>
                 <td className="py-1 text-right tabular-nums">{c.grade ?? '—'}</td>
                 <td className="py-1 text-right tabular-nums">{c.percentage ?? '—'}</td>
@@ -417,11 +421,11 @@ function StudentLoginPanel({ applicantId, email }: { applicantId: string; email:
         Create (or reset) this student&rsquo;s login for the self-service portal. They sign in with{' '}
         <span className="font-medium">{email}</span> and the temporary password below, then set their own.
       </p>
-      {err && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{err}</p>}
+      {err && <p className="rounded-md bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{err}</p>}
       {creds && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-sm dark:bg-emerald-950/40">
+        <p className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm">
           Login ready — <span className="font-medium">{creds.email}</span> · temp password:{' '}
-          <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">{creds.tempPassword}</code>
+          <code className="rounded bg-slate-800 px-1">{creds.tempPassword}</code>
           <span className="text-slate-400"> (share securely; they change it on first login)</span>
         </p>
       )}
@@ -449,18 +453,18 @@ function TermRow({ applicantId, term, isAdmin, act }: {
 }) {
   const [amount, setAmount] = useState(term.fee);
   const statusColor: Record<string, string> = {
-    pending: 'bg-slate-100 text-slate-600 dark:bg-slate-800',
-    invoiced: 'bg-amber-100 text-amber-700',
-    paid: 'bg-sky-100 text-sky-700',
-    enrolled: 'bg-emerald-100 text-emerald-700',
+    pending: 'bg-slate-700 text-slate-300 dark:bg-slate-800',
+    invoiced: 'bg-amber-500/15 text-amber-300',
+    paid: 'bg-sky-500/15 text-sky-300',
+    enrolled: 'bg-emerald-500/15 text-emerald-300',
   };
   return (
-    <li className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm dark:border-slate-800">
+    <li className="flex flex-wrap items-center gap-2 rounded-md border border-slate-800 px-3 py-2 text-sm">
       <span className="font-medium">{term.name}</span>
-      <span className={`rounded-full px-2 py-0.5 text-xs ${statusColor[term.status] ?? 'bg-slate-100 text-slate-600'}`}>{term.status}</span>
+      <span className={`rounded-full px-2 py-0.5 text-xs ${statusColor[term.status] ?? 'bg-slate-700 text-slate-300'}`}>{term.status}</span>
       <span className="text-slate-400">
         {Number(term.scholarshipPercent) > 0 ? (
-          <><span className="line-through">{term.fee}</span> {term.netFee} {term.currency} <span className="text-emerald-600">(−{term.scholarshipPercent}%)</span></>
+          <><span className="line-through">{term.fee}</span> {term.netFee} {term.currency} <span className="text-emerald-300">(−{term.scholarshipPercent}%)</span></>
         ) : (
           <>{term.fee} {term.currency}</>
         )}
@@ -482,7 +486,7 @@ function TermRow({ applicantId, term, isAdmin, act }: {
         {term.status === 'paid' && (
           <button className={btn} onClick={() => act(() => api.post(`/applicants/${applicantId}/moodle/terms/${term.termId}/provision`, {}))}>Enrol in Moodle</button>
         )}
-        {term.status === 'enrolled' && <span className="text-xs font-medium text-emerald-600">✓ enrolled</span>}
+        {term.status === 'enrolled' && <span className="text-xs font-medium text-emerald-300">✓ enrolled</span>}
         {isAdmin && term.status !== 'enrolled' && (
           <button className={btnAlt} title="Skip the payment gate (admin test)" onClick={() => act(() => api.post(`/applicants/${applicantId}/moodle/terms/${term.termId}/provision-test`, {}))}>force enrol</button>
         )}
@@ -497,7 +501,7 @@ function PayButton({ invoiceId, onDone, setError }: { invoiceId: string; onDone:
     <span className="flex items-center gap-1">
       <input className={`${inputCls} w-24`} type="number" min="0" step="0.01" placeholder="amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
       <button
-        className="text-xs text-emerald-600 hover:underline"
+        className="text-xs text-emerald-300 hover:underline"
         onClick={async () => {
           try {
             await api.post(`/invoices/${invoiceId}/payments`, { amount: Number(amount), method: 'bank_transfer' });

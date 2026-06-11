@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiError, getToken, setToken, type DashboardData } from '@/lib/api';
+import { Shell } from '@/components/Shell';
 
 const fmt = (n: string | number) =>
   Number(n).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -24,27 +25,15 @@ export default function DashboardPage() {
       });
   }, [router]);
 
-  if (error) return <div className="min-h-screen bg-slate-950 p-8 text-rose-300">{error}</div>;
-  if (!d) return <div className="min-h-screen bg-slate-950 p-8 text-slate-400">Loading…</div>;
+  if (error) return <Shell title="Dashboard"><p className="text-rose-300">{error}</p></Shell>;
+  if (!d) return <Shell title="Dashboard"><p className="text-slate-400">Loading…</p></Shell>;
 
   const cur = d.kpis.currency;
   const maxFunnel = Math.max(1, ...d.funnel.map((f) => f.count));
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <main className="mx-auto max-w-7xl space-y-6 px-6 py-8">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <nav className="flex flex-wrap gap-4 text-sm text-slate-400">
-            <a href="/pipeline" className="hover:text-white">Pipeline</a>
-            <a href="/students" className="hover:text-white">Students</a>
-            <a href="/reports" className="hover:text-white">Reports</a>
-            <a href="/catalog" className="hover:text-white">Catalog</a>
-            <a href="/account" className="hover:text-white">Account</a>
-            <button onClick={() => { setToken(null); router.push('/login'); }} className="hover:text-white">Sign out</button>
-          </nav>
-        </header>
-
+    <Shell title="Dashboard" subtitle="Your command center">
+      <div className="space-y-6">
         {/* KPI cards */}
         <section className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
           <Kpi label="Active students" value={fmt(d.kpis.activeStudents)} />
@@ -157,8 +146,8 @@ export default function DashboardPage() {
             </Card>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </Shell>
   );
 }
 
