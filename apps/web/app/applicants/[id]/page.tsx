@@ -178,7 +178,7 @@ export default function ApplicantDetailPage() {
             {/* Finance */}
             <Panel title="Finance">
               {balance && <p className="text-sm text-slate-400">Invoiced {balance.invoiced} · Paid <span className="text-emerald-300">{balance.paid}</span> · Outstanding <span className={owes ? 'text-rose-300' : ''}>{balance.outstanding}</span> {balance.currency}</p>}
-              <button className={btnAlt} onClick={() => act(() => api.post('/invoices', { applicantId: id }))}>Create invoice (from chosen program)</button>
+              <p className="text-xs text-slate-500">Invoices are raised per semester — use the <strong>Invoice</strong> button under “Semesters &amp; progress”.</p>
               <ul className="space-y-2 text-sm">
                 {invoices.map((inv) => (
                   <li key={inv.id} className="rounded-lg border border-slate-800 p-2">
