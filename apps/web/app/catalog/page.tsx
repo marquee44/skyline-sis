@@ -382,33 +382,56 @@ function Courses({
   const [programId, setProgramId] = useState('');
   const [name, setName] = useState('');
   const [moodleCourseId, setMoodleCourseId] = useState('');
+  const [openProg, setOpenProg] = useState<string | null>(null);
+
+  // Group: program → semester (term) → courses.
+  const groups = new Map<string, { name: string; terms: Map<string, { name: string; seq: number; items: Course[] }> }>();
+  for (const c of courses) {
+    const pid = c.program?.id ?? 'none';
+    if (!groups.has(pid)) groups.set(pid, { name: c.program?.name ?? '—', terms: new Map() });
+    const g = groups.get(pid)!;
+    const tid = c.term?.id ?? 'none';
+    if (!g.terms.has(tid)) g.terms.set(tid, { name: c.term?.name ?? '(no semester)', seq: c.term?.sequence ?? 999, items: [] });
+    g.terms.get(tid)!.items.push(c);
+  }
+  const progList = Array.from(groups.entries())
+    .map(([id, g]) => ({ id, name: g.name, terms: Array.from(g.terms.values()).sort((a, b) => a.seq - b.seq) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <Section title={`Courses (${courses.length})`}>
-      <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
-        {courses.map((c) => (
-          <li key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
-            <span>
-              <strong>{c.name}</strong>{' '}
-              <span className="text-slate-400">
-                · {c.program?.name} · moodle:{c.moodleCourseId ?? '—'}
-              </span>
-            </span>
-            <button
-              onClick={() =>
-                guarded(async () => {
-                  await api.del(`/courses/${c.id}`);
-                  onChange();
-                }, setError)
-              }
-              className="text-xs text-rose-300 hover:underline"
-            >
-              delete
-            </button>
-          </li>
-        ))}
-        {courses.length === 0 && <li className="px-3 py-2 text-sm text-slate-400">None yet.</li>}
-      </ul>
+      <div className="space-y-2">
+        {progList.map((p) => {
+          const total = p.terms.reduce((s, t) => s + t.items.length, 0);
+          const open = openProg === p.id;
+          return (
+            <div key={p.id} className="rounded-xl border border-slate-800 bg-slate-900/40">
+              <button onClick={() => setOpenProg(open ? null : p.id)} className="flex w-full items-center justify-between px-3 py-2.5 text-sm">
+                <span className="font-medium text-slate-100">{open ? '▾' : '▸'} {p.name}</span>
+                <span className="text-xs text-slate-500">{total} courses · {p.terms.length} semester{p.terms.length === 1 ? '' : 's'}</span>
+              </button>
+              {open && (
+                <div className="space-y-3 border-t border-slate-800 px-3 py-3">
+                  {p.terms.map((t) => (
+                    <div key={t.name}>
+                      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-purple-300">{t.name} <span className="text-slate-600">· {t.items.length}</span></div>
+                      <ul className="divide-y divide-slate-800/70 rounded-lg border border-slate-800">
+                        {t.items.map((c) => (
+                          <li key={c.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
+                            <span className="text-slate-200">{c.name} <span className="text-xs text-slate-500">· moodle:{c.moodleCourseId ?? '—'}</span></span>
+                            <button onClick={() => guarded(async () => { await api.del(`/courses/${c.id}`); onChange(); }, setError)} className="text-xs text-rose-300 hover:underline">delete</button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {courses.length === 0 && <p className="text-sm text-slate-400">None yet.</p>}
+      </div>
       <form
         className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {

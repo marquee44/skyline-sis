@@ -91,6 +91,7 @@ export interface Course {
   moodleCourseId: number | null;
   sequence: number;
   program?: { id: string; name: string };
+  term?: { id: string; name: string; sequence: number } | null;
 }
 
 export interface MoodleCategory {

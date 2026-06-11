@@ -118,7 +118,10 @@ export class CatalogService {
     return this.prisma.course.findMany({
       where: programId ? { programId } : undefined,
       orderBy: [{ programId: 'asc' }, { sequence: 'asc' }],
-      include: { program: { select: { id: true, name: true } } },
+      include: {
+        program: { select: { id: true, name: true } },
+        term: { select: { id: true, name: true, sequence: true } },
+      },
     });
   }
 
