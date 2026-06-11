@@ -61,6 +61,20 @@ export default function ApplicantDetailPage() {
   function closePreview() {
     setPreview((p) => { if (p) URL.revokeObjectURL(p.url); return null; });
   }
+  async function downloadPackage() {
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/documents/applicant/${id}/package`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!res.ok) throw new Error(`Package failed (${res.status})`);
+      const url = URL.createObjectURL(await res.blob());
+      const link = document.createElement('a');
+      link.href = url; link.download = `enrollment-${id}.zip`;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Download failed');
+    }
+  }
 
   const reload = useCallback(async () => {
     try {
@@ -170,6 +184,10 @@ export default function ApplicantDetailPage() {
                 {docs.length === 0 && <li className="text-slate-400">No documents requested yet.</li>}
               </ul>
               <AddDocForm onAdd={(type) => act(() => api.post('/documents', { applicantId: id, type }))} />
+              <div className="mt-3 border-t border-slate-800 pt-3">
+                <button className={btn} onClick={downloadPackage}>⬇ Enrollment package (.zip)</button>
+                <p className="mt-1 text-xs text-slate-500">Summary sheet + all uploaded documents — to send to the university for enrolment.</p>
+              </div>
             </Panel>
 
             <StudentLoginPanel applicantId={id} email={a.email} />

@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { ZipArchive } from 'archiver';
 import { ApplicantStage, DocumentStatus } from '@skyline/db';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -95,6 +96,74 @@ export class DocumentsService {
     const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
     if (!doc || !doc.filePath) throw new NotFoundException('No file for this document');
     return { stream: this.storage.readStream(doc.filePath), doc };
+  }
+
+  /**
+   * A complete enrollment package for the partner university: a summary sheet with
+   * the student's details + program, plus every uploaded document, zipped together.
+   */
+  async buildEnrollmentPackage(applicantId: string) {
+    const a = await this.prisma.applicant.findUnique({
+      where: { id: applicantId },
+      include: { chosenProgram: { include: { university: true } }, documents: true },
+    });
+    if (!a) throw new NotFoundException('Applicant not found');
+
+    const archive = new ZipArchive({ zlib: { level: 9 } });
+    archive.append(this.enrollmentSummary(a), { name: 'enrollment-summary.txt' });
+    for (const d of a.documents) {
+      if (!d.filePath) continue;
+      const ext = d.filePath.split('.').pop();
+      archive.append(this.storage.readStream(d.filePath), { name: `documents/${d.type}${ext ? '.' + ext : ''}` });
+    }
+    const slug = `${a.lastName}-${a.firstName}`.toLowerCase().replace(/[^a-z0-9]+/g, '-') || a.id;
+    return { archive, filename: `enrollment-${slug}.zip` };
+  }
+
+  private enrollmentSummary(a: {
+    firstName: string; lastName: string; email: string; phone: string | null;
+    dateOfBirth: Date | null; gender: string | null; countryOfOrigin: string | null;
+    residenceCity: string | null; addressLine: string | null; priorEducation: string | null;
+    stage: string; scholarshipPercent: { toString(): string } | null;
+    sponsorName: string | null; sponsorContact: string | null;
+    emergencyContactName: string | null; emergencyContactPhone: string | null;
+    chosenProgram: { name: string; level: string; university: { name: string; country: string } | null } | null;
+    documents: { type: string; status: string; filePath: string | null }[];
+  }): string {
+    const row = (k: string, v: unknown) => `${k.padEnd(24)} ${v ?? '—'}`;
+    const dob = a.dateOfBirth ? new Date(a.dateOfBirth).toISOString().slice(0, 10) : '—';
+    const sch = a.scholarshipPercent && Number(a.scholarshipPercent.toString()) > 0 ? `${a.scholarshipPercent.toString()}%` : 'none';
+    return [
+      'SKYLINE ADMISSION SERVICES — STUDENT ENROLLMENT PACKAGE',
+      '='.repeat(56),
+      '',
+      'STUDENT',
+      row('Full name', `${a.firstName} ${a.lastName}`),
+      row('Email', a.email),
+      row('Phone', a.phone),
+      row('Date of birth', dob),
+      row('Gender', a.gender),
+      row('Nationality', a.countryOfOrigin),
+      row('Residence city', a.residenceCity),
+      row('Address', a.addressLine),
+      row('Prior education', a.priorEducation),
+      '',
+      'PROGRAM',
+      row('University', a.chosenProgram?.university?.name),
+      row('Country', a.chosenProgram?.university?.country),
+      row('Program', a.chosenProgram ? `${a.chosenProgram.name} (${a.chosenProgram.level})` : '—'),
+      row('Status', a.stage),
+      row('Scholarship', sch),
+      '',
+      'SPONSOR / EMERGENCY',
+      row('Sponsor', a.sponsorName ? `${a.sponsorName}${a.sponsorContact ? ' · ' + a.sponsorContact : ''}` : '—'),
+      row('Emergency contact', a.emergencyContactName ? `${a.emergencyContactName}${a.emergencyContactPhone ? ' · ' + a.emergencyContactPhone : ''}` : '—'),
+      '',
+      'DOCUMENTS ENCLOSED',
+      ...(a.documents.length ? a.documents.map((d) => `  - ${d.type.padEnd(18)} ${d.filePath ? d.status : 'NOT UPLOADED'}`) : ['  (none)']),
+      '',
+      `Generated ${new Date().toISOString()}`,
+    ].join('\n');
   }
 
   async remove(documentId: string) {

@@ -70,6 +70,18 @@ export class DocumentsController {
     return new StreamableFile(stream);
   }
 
+  // Full enrollment package (summary + all documents) zipped, to send to the university.
+  @Get('applicant/:applicantId/package')
+  async enrollmentPackage(@Param('applicantId') applicantId: string, @Res() res: Response) {
+    const { archive, filename } = await this.documents.buildEnrollmentPackage(applicantId);
+    res.set({
+      'Content-Type': 'application/zip',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    archive.pipe(res);
+    await archive.finalize();
+  }
+
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.documents.remove(id);
