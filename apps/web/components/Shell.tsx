@@ -29,7 +29,7 @@ export function Shell({ title, subtitle, actions, children }: {
   const isActive = (href: string) => pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="app-shell min-h-screen bg-slate-950 text-slate-100 [color-scheme:dark]">
       {/* Sidebar */}
       <aside className="fixed inset-y-0 left-0 hidden w-56 flex-col border-r border-slate-800/80 bg-slate-900/70 p-4 md:flex">
         <a href="/dashboard" className="mb-6 flex items-center gap-2 px-2">

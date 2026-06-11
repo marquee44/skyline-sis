@@ -5,3 +5,38 @@
 :root {
   color-scheme: light dark;
 }
+
+/* Force dark form controls everywhere inside the staff app shell, regardless of
+   the OS/native light rendering. Belt-and-suspenders with [color-scheme:dark]. */
+.app-shell {
+  color-scheme: dark;
+}
+.app-shell input,
+.app-shell select,
+.app-shell textarea {
+  background-color: rgb(30 41 59);      /* slate-800 */
+  color: rgb(241 245 249);              /* slate-100 */
+  border-color: rgb(51 65 85);          /* slate-700 */
+}
+.app-shell input::placeholder,
+.app-shell textarea::placeholder {
+  color: rgb(100 116 139);              /* slate-500 */
+}
+.app-shell select option {
+  background-color: rgb(30 41 59);
+  color: rgb(241 245 249);
+}
+/* Chrome autofill forces a white background — override it. */
+.app-shell input:-webkit-autofill,
+.app-shell input:-webkit-autofill:hover,
+.app-shell input:-webkit-autofill:focus {
+  -webkit-text-fill-color: rgb(241 245 249);
+  -webkit-box-shadow: 0 0 0 1000px rgb(30 41 59) inset;
+  caret-color: rgb(241 245 249);
+}
+/* Native date/time picker indicators visible on dark. */
+.app-shell input[type="date"]::-webkit-calendar-picker-indicator,
+.app-shell input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.6;
+}
