@@ -438,16 +438,24 @@ function AcademicPanel({ applicantId }: { applicantId: string }) {
               </button>
               {isOpen && (
                 <table className="w-full text-sm">
+                  <thead className="text-left text-[10px] uppercase tracking-wide text-slate-500">
+                    <tr className="border-t border-slate-800">
+                      <th className="px-3 py-1 font-medium">Course</th>
+                      <th className="w-16 px-3 py-1 text-right font-medium">Grade</th>
+                      <th className="w-12 px-3 py-1 text-right font-medium">%</th>
+                      <th className="w-16 px-3 py-1 text-right font-medium">Done</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {term.items.map((c, i) => (
-                      <tr key={i} className={`border-t border-slate-800 ${c.enrolled ? '' : 'opacity-50'}`}>
+                      <tr key={i} className={`border-t border-slate-800/60 ${c.enrolled ? '' : 'opacity-50'}`}>
                         <td className="px-3 py-1.5 text-slate-200">
                           {c.course}
                           {c.enrolled && <span className="ml-2 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-300">enrolled</span>}
                         </td>
                         <td className="w-16 px-3 py-1.5 text-right tabular-nums">{c.grade ?? '—'}</td>
                         <td className="w-12 px-3 py-1.5 text-right tabular-nums">{c.percentage ?? '—'}</td>
-                        <td className="w-12 px-3 py-1.5 text-right">{c.completed == null ? '—' : c.completed ? '✓' : '–'}</td>
+                        <td className="w-16 px-3 py-1.5 text-right">{c.completed == null ? '—' : c.completed ? '✓' : '–'}</td>
                       </tr>
                     ))}
                   </tbody>
