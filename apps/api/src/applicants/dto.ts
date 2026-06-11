@@ -1,4 +1,5 @@
 import {
+  IsDateString,
   IsEmail,
   IsEnum,
   IsNumber,
@@ -35,6 +36,27 @@ export class CreateApplicantDto {
 
   @IsOptional() @IsString()
   interests?: string;
+
+  @IsOptional() @IsDateString()
+  dateOfBirth?: string;
+
+  @IsOptional() @IsString() @MaxLength(20)
+  gender?: string;
+
+  @IsOptional() @IsString() @MaxLength(200)
+  addressLine?: string;
+
+  @IsOptional() @IsString() @MaxLength(150)
+  sponsorName?: string;
+
+  @IsOptional() @IsString() @MaxLength(100)
+  sponsorContact?: string;
+
+  @IsOptional() @IsString() @MaxLength(150)
+  emergencyContactName?: string;
+
+  @IsOptional() @IsString() @MaxLength(100)
+  emergencyContactPhone?: string;
 }
 
 export class UpdateApplicantDto {
@@ -67,6 +89,27 @@ export class UpdateApplicantDto {
 
   @IsOptional() @IsString() @MaxLength(200)
   scholarshipNote?: string;
+
+  @IsOptional() @IsDateString()
+  dateOfBirth?: string;
+
+  @IsOptional() @IsString() @MaxLength(20)
+  gender?: string;
+
+  @IsOptional() @IsString() @MaxLength(200)
+  addressLine?: string;
+
+  @IsOptional() @IsString() @MaxLength(150)
+  sponsorName?: string;
+
+  @IsOptional() @IsString() @MaxLength(100)
+  sponsorContact?: string;
+
+  @IsOptional() @IsString() @MaxLength(150)
+  emergencyContactName?: string;
+
+  @IsOptional() @IsString() @MaxLength(100)
+  emergencyContactPhone?: string;
 }
 
 export class TransitionStageDto {

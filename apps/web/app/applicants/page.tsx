@@ -170,33 +170,61 @@ function CreateApplicant({
   onChange: () => void;
   setError: (e: string | null) => void;
 }) {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
+  const empty = {
+    firstName: '', lastName: '', email: '', phone: '', dateOfBirth: '', gender: '',
+    countryOfOrigin: '', residenceCity: '', priorEducation: '', interests: '',
+    sponsorName: '', sponsorContact: '',
+  };
+  const [f, setF] = useState(empty);
+  const [open, setOpen] = useState(false);
+  const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
   const inputCls =
     'rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900';
+  const lbl = (label: string, node: React.ReactNode) => (
+    <label className="block space-y-1"><span className="text-xs text-slate-500">{label}</span>{node}</label>
+  );
 
   return (
     <form
-      className="flex flex-wrap items-end gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-800"
+      className="space-y-3 rounded-md border border-slate-200 p-4 dark:border-slate-800"
       onSubmit={async (e) => {
         e.preventDefault();
         try {
-          await api.post('/applicants', { firstName, lastName, email });
-          setFirstName(''); setLastName(''); setEmail('');
-          setError(null);
-          onChange();
+          const payload: Record<string, string> = {};
+          for (const [k, v] of Object.entries(f)) if (v.trim()) payload[k] = v.trim();
+          await api.post('/applicants', payload);
+          setF(empty); setOpen(false); setError(null); onChange();
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Create failed');
         }
       }}
     >
-      <input className={inputCls} placeholder="First name" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-      <input className={inputCls} placeholder="Last name" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
-      <input className={inputCls} type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-      <button className="rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700" type="submit">
-        Add applicant
-      </button>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        {lbl('First name', <input className={`${inputCls} w-full`} required value={f.firstName} onChange={(e) => set('firstName', e.target.value)} />)}
+        {lbl('Last name', <input className={`${inputCls} w-full`} required value={f.lastName} onChange={(e) => set('lastName', e.target.value)} />)}
+        {lbl('Email', <input className={`${inputCls} w-full`} type="email" required value={f.email} onChange={(e) => set('email', e.target.value)} />)}
+      </div>
+      {open && (
+        <div className="grid grid-cols-1 gap-2 border-t border-slate-100 pt-3 dark:border-slate-800 sm:grid-cols-3">
+          {lbl('Phone', <input className={`${inputCls} w-full`} value={f.phone} onChange={(e) => set('phone', e.target.value)} />)}
+          {lbl('Date of birth', <input className={`${inputCls} w-full`} type="date" value={f.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} />)}
+          {lbl('Gender', <select className={`${inputCls} w-full`} value={f.gender} onChange={(e) => set('gender', e.target.value)}><option value="">—</option><option>Female</option><option>Male</option><option>Other</option></select>)}
+          {lbl('Country of origin', <input className={`${inputCls} w-full`} value={f.countryOfOrigin} onChange={(e) => set('countryOfOrigin', e.target.value)} />)}
+          {lbl('Residence city', <input className={`${inputCls} w-full`} value={f.residenceCity} onChange={(e) => set('residenceCity', e.target.value)} />)}
+          {lbl('Prior education', <input className={`${inputCls} w-full`} value={f.priorEducation} onChange={(e) => set('priorEducation', e.target.value)} />)}
+          {lbl('Interests', <input className={`${inputCls} w-full`} value={f.interests} onChange={(e) => set('interests', e.target.value)} />)}
+          {lbl('Sponsor name', <input className={`${inputCls} w-full`} value={f.sponsorName} onChange={(e) => set('sponsorName', e.target.value)} />)}
+          {lbl('Sponsor contact', <input className={`${inputCls} w-full`} value={f.sponsorContact} onChange={(e) => set('sponsorContact', e.target.value)} />)}
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <button className="rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700" type="submit">
+          Add applicant
+        </button>
+        <button type="button" className="text-xs text-sky-600 hover:underline" onClick={() => setOpen((o) => !o)}>
+          {open ? 'fewer fields' : '+ more details'}
+        </button>
+      </div>
     </form>
   );
 }

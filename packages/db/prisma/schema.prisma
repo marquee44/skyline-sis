@@ -339,6 +339,15 @@ model Applicant {
   priorEducation  String? @map("prior_education")
   interests       String? // captured by the intake bot
 
+  // Richer profile (admission-services context; sponsor replaces K-12 guardian).
+  dateOfBirth           DateTime? @map("date_of_birth") @db.Date
+  gender                String?
+  addressLine           String?   @map("address_line")
+  sponsorName           String?   @map("sponsor_name")
+  sponsorContact        String?   @map("sponsor_contact")
+  emergencyContactName  String?   @map("emergency_contact_name")
+  emergencyContactPhone String?   @map("emergency_contact_phone")
+
   stage           ApplicantStage @default(intake_started)
 
   assignedAdvisorId String?  @map("assigned_advisor_id")

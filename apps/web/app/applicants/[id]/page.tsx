@@ -14,6 +14,7 @@ import {
   type Balance,
   type AuthUser,
   type ApplicantTermRow,
+  type Transcript,
 } from '@/lib/api';
 
 const DOC_TYPES = ['passport', 'emirates_id', 'prior_diploma', 'transcript', 'photo', 'legalization', 'other'];
@@ -76,6 +77,12 @@ export default function ApplicantDetailPage() {
         </p>
       </header>
       {error && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p>}
+
+      {/* Profile details (view + edit) */}
+      <DetailsPanel applicant={a} onSave={(patch) => act(() => api.patch(`/applicants/${id}`, patch))} />
+
+      {/* Academic performance (grades read from Moodle) */}
+      <AcademicPanel applicantId={id} moodleUserId={a.moodleUserId ?? null} />
 
       {/* Consultation (admin test shortcut) */}
       {me?.role === 'admin' && (a.stage === 'intake_started' || a.stage === 'consultation_booked') && (
@@ -276,6 +283,126 @@ function ScholarshipPanel({ applicant, onSave }: { applicant: ApplicantDetail; o
         <button className={btn} onClick={() => onSave(Number(pct), note)}>Save</button>
       </div>
       <p className="text-xs text-slate-400">Applies to semesters invoiced after saving (already-issued invoices are unchanged).</p>
+    </Panel>
+  );
+}
+
+function DField({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <dt className="text-xs text-slate-400">{label}</dt>
+      <dd className={value ? '' : 'text-slate-400'}>{value || '—'}</dd>
+    </div>
+  );
+}
+
+function L({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1">
+      <span className="text-xs text-slate-500">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function DetailsPanel({ applicant, onSave }: { applicant: ApplicantDetail; onSave: (patch: Record<string, unknown>) => void }) {
+  const [edit, setEdit] = useState(false);
+  const [f, setF] = useState({
+    phone: applicant.phone ?? '',
+    dateOfBirth: applicant.dateOfBirth ? applicant.dateOfBirth.slice(0, 10) : '',
+    gender: applicant.gender ?? '',
+    countryOfOrigin: applicant.countryOfOrigin ?? '',
+    residenceCity: applicant.residenceCity ?? '',
+    addressLine: applicant.addressLine ?? '',
+    priorEducation: applicant.priorEducation ?? '',
+    interests: applicant.interests ?? '',
+    sponsorName: applicant.sponsorName ?? '',
+    sponsorContact: applicant.sponsorContact ?? '',
+    emergencyContactName: applicant.emergencyContactName ?? '',
+    emergencyContactPhone: applicant.emergencyContactPhone ?? '',
+  });
+  const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
+  function save() {
+    const patch: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(f)) patch[k] = v === '' ? null : v;
+    onSave(patch);
+    setEdit(false);
+  }
+
+  if (!edit) {
+    return (
+      <Panel title="Details">
+        <div className="-mt-9 flex justify-end"><button className="text-xs text-sky-600 hover:underline" onClick={() => setEdit(true)}>edit</button></div>
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+          <DField label="Email" value={applicant.email} />
+          <DField label="Phone" value={applicant.phone} />
+          <DField label="Date of birth" value={applicant.dateOfBirth ? new Date(applicant.dateOfBirth).toLocaleDateString() : null} />
+          <DField label="Gender" value={applicant.gender} />
+          <DField label="Country of origin" value={applicant.countryOfOrigin} />
+          <DField label="Residence city" value={applicant.residenceCity} />
+          <DField label="Address" value={applicant.addressLine} />
+          <DField label="Prior education" value={applicant.priorEducation} />
+          <DField label="Interests" value={applicant.interests} />
+        </dl>
+        <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2 border-t border-slate-100 pt-3 text-sm dark:border-slate-800 sm:grid-cols-2">
+          <DField label="Sponsor" value={applicant.sponsorName ? `${applicant.sponsorName}${applicant.sponsorContact ? ' · ' + applicant.sponsorContact : ''}` : null} />
+          <DField label="Emergency contact" value={applicant.emergencyContactName ? `${applicant.emergencyContactName}${applicant.emergencyContactPhone ? ' · ' + applicant.emergencyContactPhone : ''}` : null} />
+        </div>
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel title="Edit details">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <L label="Phone"><input className={inputCls} value={f.phone} onChange={(e) => set('phone', e.target.value)} /></L>
+        <L label="Date of birth"><input className={inputCls} type="date" value={f.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} /></L>
+        <L label="Gender"><select className={inputCls} value={f.gender} onChange={(e) => set('gender', e.target.value)}><option value="">—</option><option>Female</option><option>Male</option><option>Other</option></select></L>
+        <L label="Country of origin"><input className={inputCls} value={f.countryOfOrigin} onChange={(e) => set('countryOfOrigin', e.target.value)} /></L>
+        <L label="Residence city"><input className={inputCls} value={f.residenceCity} onChange={(e) => set('residenceCity', e.target.value)} /></L>
+        <L label="Address"><input className={inputCls} value={f.addressLine} onChange={(e) => set('addressLine', e.target.value)} /></L>
+        <L label="Prior education"><input className={inputCls} value={f.priorEducation} onChange={(e) => set('priorEducation', e.target.value)} /></L>
+        <L label="Interests"><input className={inputCls} value={f.interests} onChange={(e) => set('interests', e.target.value)} /></L>
+        <L label="Sponsor name"><input className={inputCls} value={f.sponsorName} onChange={(e) => set('sponsorName', e.target.value)} /></L>
+        <L label="Sponsor contact"><input className={inputCls} value={f.sponsorContact} onChange={(e) => set('sponsorContact', e.target.value)} /></L>
+        <L label="Emergency contact name"><input className={inputCls} value={f.emergencyContactName} onChange={(e) => set('emergencyContactName', e.target.value)} /></L>
+        <L label="Emergency contact phone"><input className={inputCls} value={f.emergencyContactPhone} onChange={(e) => set('emergencyContactPhone', e.target.value)} /></L>
+      </div>
+      <div className="flex gap-2">
+        <button className={btn} onClick={save}>Save</button>
+        <button className={btnAlt} onClick={() => setEdit(false)}>Cancel</button>
+      </div>
+    </Panel>
+  );
+}
+
+function AcademicPanel({ applicantId, moodleUserId }: { applicantId: string; moodleUserId: number | null }) {
+  const [t, setT] = useState<Transcript | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!moodleUserId) return;
+    api.get<Transcript>(`/applicants/${applicantId}/moodle/transcript`).then(setT).catch((e) => setErr(e instanceof Error ? e.message : 'failed'));
+  }, [applicantId, moodleUserId]);
+  if (!moodleUserId) return null;
+  return (
+    <Panel title="Academic (grades from Moodle)">
+      {err && <p className="text-sm text-rose-600">{err}</p>}
+      {!t ? <p className="text-sm text-slate-400">Loading grades…</p> : (
+        <table className="w-full text-sm">
+          <thead className="text-left text-xs uppercase text-slate-400"><tr><th className="py-1">Course</th><th className="py-1 text-right">Grade</th><th className="py-1 text-right">%</th><th className="py-1 text-right">Done</th></tr></thead>
+          <tbody>
+            {t.courses.map((c, i) => (
+              <tr key={i} className="border-t border-slate-100 dark:border-slate-800">
+                <td className="py-1">{c.course}</td>
+                <td className="py-1 text-right tabular-nums">{c.grade ?? '—'}</td>
+                <td className="py-1 text-right tabular-nums">{c.percentage ?? '—'}</td>
+                <td className="py-1 text-right">{c.completed == null ? '—' : c.completed ? '✓' : '–'}</td>
+              </tr>
+            ))}
+            {t.courses.length === 0 && <tr><td colSpan={4} className="py-3 text-center text-slate-400">No courses yet.</td></tr>}
+          </tbody>
+        </table>
+      )}
     </Panel>
   );
 }

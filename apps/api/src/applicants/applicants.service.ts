@@ -44,8 +44,13 @@ export class ApplicantsService {
 
   async create(dto: CreateApplicantDto) {
     try {
+      const { dateOfBirth, ...rest } = dto;
       const applicant = await this.prisma.applicant.create({
-        data: { ...dto, stage: ApplicantStage.intake_started },
+        data: {
+          ...rest,
+          ...(dateOfBirth ? { dateOfBirth: new Date(dateOfBirth) } : {}),
+          stage: ApplicantStage.intake_started,
+        },
       });
       // Record the initial stage so the history starts at the beginning.
       await this.prisma.stageTransition.create({
@@ -71,7 +76,11 @@ export class ApplicantsService {
       const adv = await this.prisma.advisor.findUnique({ where: { id: dto.assignedAdvisorId } });
       if (!adv) throw new BadRequestException('assignedAdvisorId does not exist');
     }
-    return this.prisma.applicant.update({ where: { id }, data: dto });
+    const { dateOfBirth, ...rest } = dto;
+    return this.prisma.applicant.update({
+      where: { id },
+      data: { ...rest, ...(dateOfBirth !== undefined ? { dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null } : {}) },
+    });
   }
 
   /**

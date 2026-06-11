@@ -325,6 +325,14 @@ export interface ApplicantDetail extends Applicant {
   moodleUserId?: number | null;
   scholarshipPercent?: string;
   scholarshipNote?: string | null;
+  priorEducation?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  addressLine?: string | null;
+  sponsorName?: string | null;
+  sponsorContact?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
   stageTransitions?: StageTransition[];
 }
 
