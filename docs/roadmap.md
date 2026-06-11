@@ -76,11 +76,25 @@ Effort key: **S** ≈ hours, **M** ≈ a few days, **L** ≈ 1–2 weeks.
 - **Accounting integration (QuickBooks / Zoho Books)** — sync invoices, payments, and
   university forwards to the books instead of re-keying. Relevant because real money moves. **(M–L)**
 
+## Also shipped (2026-06-09 → 06-11)
+
+- **Rich applicant profile** — ✅ DONE. DOB, gender, address, prior education, sponsor +
+  emergency contact (admission-services replacements for K-12 guardian); wide 2-column
+  detail page with a progress / courses-&-grades / balance summary strip.
+- **Dark UI redesign** — ✅ DONE. Shared `components/Shell.tsx` (sidebar + topbar); all
+  staff pages restyled dark + consistent; `.app-shell` CSS forces dark native form controls.
+- **Moodle SSO bridge (interim)** — ✅ DONE. Custom `local_sislogin` Moodle plugin →
+  one-click login from the SIS portal into Moodle as the student. (Full Authentik OIDC is
+  the durable version — below.)
+- **Catalog reset to live Moodle data** — ✅ DONE (2026-06-11). Wiped catalog + test data,
+  re-imported from Moodle; Courses view grouped Program → Semester → Course.
+
 ## Tier 4 — Polish, reach, scale
 
 - **Multilingual UI (English / Arabic / Serbian)** — fits the UAE base + Serbian partner
   content; matters most for the student portal. **(M)**
-- **SSO (Google / Microsoft)** — log in with existing accounts; less password risk. **(M)**
+- **Full Authentik OIDC SSO** — one login for SIS + Moodle, both directions (the interim
+  bridge only covers SIS → Moodle). Moodle 5.1 core `auth/oauth2` makes this the clean path. **(M–L)**
 - **Mobile / PWA** — installable, offline-friendly; students especially. **(M)**
 - **New-term automation** — auto-issue the next semester's invoice when it opens + dunning
   schedule; builds on per-term billing. **(M)**
@@ -90,9 +104,9 @@ Effort key: **S** ≈ hours, **M** ≈ a few days, **L** ≈ 1–2 weeks.
 - **Retire the legacy flat billing path** — now that per-term billing works, make
   `Course.termId` / `Invoice.termId` required, drop `Program.tuitionTotal`, and remove the
   old whole-program invoice + provision buttons. **(S–M)**
-- **Clean up test data** — remove the test applicants (Phase3 Tester, Seq Test, mm ll,
-  Moodle Tester, etc.) and their Moodle users before real use. **(S)**
-- **Re-point or remove the hidden flat programs** left inactive after the import rework. **(S)**
+- **Test data** — ✅ cleared in the 2026-06-11 catalog reset (0 applicants now).
+- **Set real semester fees** — fresh Moodle import leaves term fees at 0; set per program
+  in the catalog "semesters & fees" editor. **(S)**
 
 ---
 
