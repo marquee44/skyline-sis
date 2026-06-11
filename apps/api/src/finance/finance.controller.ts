@@ -28,6 +28,12 @@ export class FinanceController {
     return this.finance.atRiskStudents();
   }
 
+  // Admin command-center dashboard (KPIs, money, funnel, renewals, attention).
+  @Get('dashboard')
+  dashboard() {
+    return this.finance.dashboard();
+  }
+
   // Per-term (per-semester) billing.
   @Get('applicants/:id/terms')
   applicantTerms(@Param('id') id: string) {

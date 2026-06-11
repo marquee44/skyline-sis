@@ -45,6 +45,7 @@ export default function ReportsPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Finance reports</h1>
         <nav className="flex gap-4 text-sm text-slate-500">
+          <a href="/dashboard" className="hover:underline">Dashboard</a>
           <a href="/pipeline" className="hover:underline">Pipeline</a>
           <a href="/students" className="hover:underline">Students</a>
           <a href="/catalog" className="hover:underline">Catalog</a>

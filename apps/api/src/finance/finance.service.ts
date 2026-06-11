@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import {
   ApplicantStage,
+  ConsultationStatus,
   InvoiceStatus,
   ProgramChoiceStatus,
   TermEnrollmentStatus,
@@ -348,6 +349,162 @@ export class FinanceService {
     }
     rows.sort((x, y) => Number(y.outstanding) - Number(x.outstanding) || y.daysInStage - x.daysInStage);
     return rows;
+  }
+
+  // The admin command-center: KPIs, money (collected vs outstanding vs forwarded),
+  // pipeline funnel + conversion, next-semester renewal forecast, revenue by
+  // program, upcoming consultations, recent payments, and the needs-attention list.
+  async dashboard() {
+    const now = new Date();
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const weekAhead = new Date(now.getTime() + 7 * 86_400_000);
+    const D = (n: Prisma.Decimal.Value = 0) => new Prisma.Decimal(n);
+
+    const [applicants, invoices, payments, forwards, consultations, terms, atRisk] = await Promise.all([
+      this.prisma.applicant.findMany({
+        select: { id: true, firstName: true, lastName: true, stage: true, createdAt: true, chosenProgramId: true, scholarshipPercent: true, termEnrollments: { select: { termId: true, status: true } } },
+      }),
+      this.prisma.invoice.findMany({
+        where: { status: { not: InvoiceStatus.cancelled } },
+        select: { amountTotal: true, currency: true, program: { select: { name: true } }, payments: { select: { amount: true } } },
+      }),
+      this.prisma.payment.findMany({
+        select: { amount: true, method: true, receivedAt: true, invoice: { select: { currency: true, applicant: { select: { firstName: true, lastName: true } } } } },
+        orderBy: { receivedAt: 'desc' },
+        take: 200,
+      }),
+      this.prisma.forward.findMany({ select: { amount: true, currency: true } }),
+      this.prisma.consultation.findMany({
+        where: { scheduledStartUtc: { gte: now, lte: weekAhead }, status: ConsultationStatus.booked },
+        select: { scheduledStartUtc: true, applicant: { select: { firstName: true, lastName: true } }, advisor: { select: { name: true } } },
+        orderBy: { scheduledStartUtc: 'asc' },
+        take: 6,
+      }),
+      this.prisma.term.findMany({ select: { id: true, programId: true, name: true, sequence: true, tuitionTotal: true, tuitionCurrency: true }, orderBy: { sequence: 'asc' } }),
+      this.atRiskStudents(),
+    ]);
+
+    const currency = invoices[0]?.currency ?? 'AED';
+    const ACTIVE: ApplicantStage[] = [ApplicantStage.enrolled, ApplicantStage.active_student];
+    const ENROLLED_PLUS: ApplicantStage[] = [...ACTIVE, ApplicantStage.graduated];
+    const TERMINAL: ApplicantStage[] = [ApplicantStage.graduated, ApplicantStage.withdrawn, ApplicantStage.rejected];
+
+    // KPIs
+    const activeStudents = applicants.filter((a) => ACTIVE.includes(a.stage)).length;
+    const pipeline = applicants.filter((a) => !TERMINAL.includes(a.stage)).length;
+    const newThis = applicants.filter((a) => a.createdAt >= startMonth).length;
+    const newLast = applicants.filter((a) => a.createdAt >= startLastMonth && a.createdAt < startMonth).length;
+    const enrolledEver = applicants.filter((a) => ENROLLED_PLUS.includes(a.stage)).length;
+    const conversionPct = applicants.length ? Math.round((enrolledEver / applicants.length) * 100) : 0;
+
+    // Money
+    let invoiced = D();
+    let collected = D();
+    for (const inv of invoices) {
+      invoiced = invoiced.plus(inv.amountTotal);
+      for (const p of inv.payments) collected = collected.plus(p.amount);
+    }
+    const outstanding = invoiced.minus(collected);
+    const collectedThis = payments.filter((p) => p.receivedAt >= startMonth).reduce((s, p) => s.plus(p.amount), D());
+    const collectedLast = payments.filter((p) => p.receivedAt >= startLastMonth && p.receivedAt < startMonth).reduce((s, p) => s.plus(p.amount), D());
+    const forwardedByCur: Record<string, Prisma.Decimal> = {};
+    for (const f of forwards) forwardedByCur[f.currency] = (forwardedByCur[f.currency] ?? D()).plus(f.amount);
+
+    const pct = (cur: Prisma.Decimal | number, prev: Prisma.Decimal | number): number | null => {
+      const p = Number(prev);
+      if (!p) return null;
+      return Math.round(((Number(cur) - p) / p) * 100);
+    };
+
+    // Funnel (pipeline order)
+    const FUNNEL: { stage: ApplicantStage; label: string }[] = [
+      { stage: ApplicantStage.intake_started, label: 'Intake' },
+      { stage: ApplicantStage.consultation_booked, label: 'Booked' },
+      { stage: ApplicantStage.consultation_completed, label: 'Consulted' },
+      { stage: ApplicantStage.program_confirmed, label: 'Program' },
+      { stage: ApplicantStage.payment_received, label: 'Paid' },
+      { stage: ApplicantStage.active_student, label: 'Active' },
+    ];
+    const funnel = FUNNEL.map((f) => ({ stage: f.stage, label: f.label, count: applicants.filter((a) => a.stage === f.stage).length }));
+
+    // Revenue by program (for the donut: paid)
+    const progMap = new Map<string, { name: string; invoiced: Prisma.Decimal; paid: Prisma.Decimal }>();
+    for (const inv of invoices) {
+      const name = inv.program?.name ?? '—';
+      const e = progMap.get(name) ?? { name, invoiced: D(), paid: D() };
+      e.invoiced = e.invoiced.plus(inv.amountTotal);
+      for (const p of inv.payments) e.paid = e.paid.plus(p.amount);
+      progMap.set(name, e);
+    }
+    const byProgram = Array.from(progMap.values())
+      .map((e) => ({ name: e.name, invoiced: e.invoiced.toFixed(2), paid: e.paid.toFixed(2) }))
+      .sort((a, b) => Number(b.paid) - Number(a.paid));
+
+    // Next-semester renewal forecast: active students whose next term isn't done yet.
+    const termsByProgram = new Map<string, typeof terms>();
+    for (const t of terms) {
+      const arr = termsByProgram.get(t.programId) ?? [];
+      arr.push(t);
+      termsByProgram.set(t.programId, arr);
+    }
+    const renewalItems: { name: string; term: string; amount: string }[] = [];
+    let renewalTotal = D();
+    for (const a of applicants) {
+      if (!ACTIVE.includes(a.stage) || !a.chosenProgramId) continue;
+      const pterms = (termsByProgram.get(a.chosenProgramId) ?? []).slice().sort((x, y) => x.sequence - y.sequence);
+      const doneIds = new Set(a.termEnrollments.filter((te) => te.status === TermEnrollmentStatus.enrolled || te.status === TermEnrollmentStatus.paid).map((te) => te.termId));
+      const next = pterms.find((t) => !doneIds.has(t.id));
+      if (!next) continue;
+      const sch = D(a.scholarshipPercent ?? 0);
+      const amount = next.tuitionTotal.times(D(100).minus(sch)).dividedBy(100).toDecimalPlaces(2);
+      renewalTotal = renewalTotal.plus(amount);
+      renewalItems.push({ name: `${a.firstName} ${a.lastName}`.trim(), term: next.name, amount: amount.toFixed(2) });
+    }
+    renewalItems.sort((a, b) => Number(b.amount) - Number(a.amount));
+
+    return {
+      kpis: {
+        activeStudents,
+        pipeline,
+        newApplicantsThisMonth: newThis,
+        newApplicantsTrendPct: pct(newThis, newLast),
+        upcomingConsultations: consultations.length,
+        collectedThisMonth: collectedThis.toFixed(2),
+        collectedTrendPct: pct(collectedThis, collectedLast),
+        outstanding: outstanding.toFixed(2),
+        conversionPct,
+        currency,
+      },
+      money: {
+        invoiced: invoiced.toFixed(2),
+        collected: collected.toFixed(2),
+        outstanding: outstanding.toFixed(2),
+        currency,
+        forwarded: Object.entries(forwardedByCur).map(([c, v]) => ({ currency: c, amount: v.toFixed(2) })),
+      },
+      funnel,
+      byProgram,
+      renewals: {
+        studentCount: renewalItems.length,
+        expectedAmount: renewalTotal.toFixed(2),
+        currency,
+        items: renewalItems.slice(0, 8),
+      },
+      upcoming: consultations.map((c) => ({
+        name: `${c.applicant.firstName} ${c.applicant.lastName}`.trim(),
+        advisor: c.advisor?.name ?? '—',
+        whenUtc: c.scheduledStartUtc.toISOString(),
+      })),
+      recentPayments: payments.slice(0, 6).map((p) => ({
+        name: `${p.invoice.applicant.firstName} ${p.invoice.applicant.lastName}`.trim(),
+        amount: p.amount.toFixed(2),
+        currency: p.invoice.currency,
+        method: p.method,
+        whenUtc: p.receivedAt.toISOString(),
+      })),
+      atRisk: { count: atRisk.length, items: atRisk.slice(0, 6) },
+    };
   }
 
   async universityBalance(universityId: string) {

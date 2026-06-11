@@ -186,6 +186,28 @@ export interface ApplicantTermRow {
   locked: boolean;
 }
 
+export interface DashboardData {
+  kpis: {
+    activeStudents: number;
+    pipeline: number;
+    newApplicantsThisMonth: number;
+    newApplicantsTrendPct: number | null;
+    upcomingConsultations: number;
+    collectedThisMonth: string;
+    collectedTrendPct: number | null;
+    outstanding: string;
+    conversionPct: number;
+    currency: string;
+  };
+  money: { invoiced: string; collected: string; outstanding: string; currency: string; forwarded: { currency: string; amount: string }[] };
+  funnel: { stage: string; label: string; count: number }[];
+  byProgram: { name: string; invoiced: string; paid: string }[];
+  renewals: { studentCount: number; expectedAmount: string; currency: string; items: { name: string; term: string; amount: string }[] };
+  upcoming: { name: string; advisor: string; whenUtc: string }[];
+  recentPayments: { name: string; amount: string; currency: string; method: string; whenUtc: string }[];
+  atRisk: { count: number; items: { id: string; name: string; reasons: string[] }[] };
+}
+
 export interface FinanceReportRow {
   name: string;
   invoiced: string;

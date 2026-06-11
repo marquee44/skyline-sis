@@ -72,6 +72,7 @@ export default function StudentsOverviewPage() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Students</h1>
         <nav className="flex gap-4 text-sm text-slate-500">
+          <a href="/dashboard" className="hover:underline">Dashboard</a>
           <a href="/pipeline" className="hover:underline">Pipeline</a>
           <a href="/reports" className="hover:underline">Reports</a>
           <a href="/applicants" className="hover:underline">Applicants</a>

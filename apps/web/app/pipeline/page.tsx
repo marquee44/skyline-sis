@@ -44,6 +44,7 @@ export default function PipelinePage() {
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Pipeline</h1>
         <nav className="flex gap-4 text-sm text-slate-500">
+          <a href="/dashboard" className="hover:underline">Dashboard</a>
           <a href="/students" className="hover:underline">Students</a>
           <a href="/reports" className="hover:underline">Reports</a>
           <a href="/applicants" className="hover:underline">Applicants</a>
