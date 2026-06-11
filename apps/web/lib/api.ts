@@ -136,11 +136,20 @@ export interface DegreeAudit {
   graduated: boolean;
 }
 
+export interface TranscriptCourse {
+  course: string;
+  term: { name: string; sequence: number } | null;
+  enrolled: boolean;
+  grade: string | null;
+  percentage: string | null;
+  completed: boolean | null;
+}
+
 export interface Transcript {
   student: { name: string; email: string };
   university: { name: string } | null;
   program: { name: string; level: string } | null;
-  courses: { course: string; grade: string | null; percentage: string | null; completed: boolean | null }[];
+  courses: TranscriptCourse[];
   generatedFromMoodle: boolean;
 }
 

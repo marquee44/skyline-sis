@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { EnrollmentStatus } from '@skyline/db';
 import { PrismaService } from '../prisma/prisma.service';
 import { MoodleService } from './moodle.service';
 
@@ -70,30 +71,75 @@ export class MoodleReadbackService {
    * comes from the course-total grade item; null when there are no grades yet.
    */
   async transcript(applicantId: string) {
-    const { applicant } = await this.resolve(applicantId);
-    const program = await this.prisma.program.findUnique({
-      where: { id: applicant.chosenProgramId! },
-      include: { university: true },
-    });
-    const prog = await this.progress(applicantId);
-    const courses = prog.courses.map((c) => {
-      const usergrade = (c.grades as { usergrades?: { gradeitems?: GradeItem[] }[] } | null)?.usergrades?.[0];
-      const courseItem = usergrade?.gradeitems?.find((g) => g.itemtype === 'course');
-      const completed = (c.completion as { completionstatus?: { completed?: boolean } } | null)?.completionstatus?.completed ?? null;
-      return {
-        course: c.name,
-        grade: courseItem?.gradeformatted ?? null,
-        percentage: courseItem?.percentageformatted ?? null,
-        completed,
-      };
-    });
-    return {
-      student: { name: `${applicant.firstName} ${applicant.lastName}`, email: applicant.email },
-      university: program?.university ? { name: program.university.name } : null,
-      program: program ? { name: program.name, level: program.level } : null,
-      courses,
+    const applicant = await this.prisma.applicant.findUnique({ where: { id: applicantId } });
+    if (!applicant) throw new BadRequestException('Applicant not found');
+
+    const base = {
+      student: { name: `${applicant.firstName} ${applicant.lastName}`.trim(), email: applicant.email },
+      university: null as { name: string } | null,
+      program: null as { name: string; level: string } | null,
+      courses: [] as Array<{
+        course: string;
+        term: { name: string; sequence: number } | null;
+        enrolled: boolean;
+        grade: string | null;
+        percentage: string | null;
+        completed: boolean | null;
+      }>,
       generatedFromMoodle: true,
     };
+    if (!applicant.chosenProgramId) return base;
+
+    const program = await this.prisma.program.findUnique({
+      where: { id: applicant.chosenProgramId },
+      include: { university: true },
+    });
+    base.university = program?.university ? { name: program.university.name } : null;
+    base.program = program ? { name: program.name, level: program.level } : null;
+
+    // The full curriculum, ordered semester → course.
+    const courses = await this.prisma.course.findMany({
+      where: { programId: applicant.chosenProgramId },
+      orderBy: [{ term: { sequence: 'asc' } }, { sequence: 'asc' }],
+      include: { term: { select: { name: true, sequence: true } } },
+    });
+    // Which ones the student is actually enrolled in.
+    const enrolled = await this.prisma.courseEnrollment.findMany({
+      where: { applicantId, status: EnrollmentStatus.enrolled },
+      select: { courseId: true },
+    });
+    const enrolledSet = new Set(enrolled.map((e) => e.courseId));
+
+    const settle = async <T>(p: Promise<T>): Promise<T | null> => {
+      try { return await p; } catch { return null; }
+    };
+
+    base.courses = await Promise.all(
+      courses.map(async (c) => {
+        let grade: string | null = null;
+        let percentage: string | null = null;
+        let completed: boolean | null = null;
+        // Only hit Moodle for courses the student is actually enrolled in.
+        if (applicant.moodleUserId && c.moodleCourseId && enrolledSet.has(c.id)) {
+          const [comp, grades] = await Promise.all([
+            settle(this.moodle.courseCompletion(applicant.moodleUserId, c.moodleCourseId)),
+            settle(this.moodle.gradeItems(applicant.moodleUserId, c.moodleCourseId)),
+          ]);
+          const usergrade = (grades as { usergrades?: { gradeitems?: GradeItem[] }[] } | null)?.usergrades?.[0];
+          const courseItem = usergrade?.gradeitems?.find((g) => g.itemtype === 'course');
+          grade = courseItem?.gradeformatted ?? null;
+          percentage = courseItem?.percentageformatted ?? null;
+          completed = (comp as { completionstatus?: { completed?: boolean } } | null)?.completionstatus?.completed ?? null;
+        }
+        return {
+          course: c.name,
+          term: c.term ? { name: c.term.name, sequence: c.term.sequence } : null,
+          enrolled: enrolledSet.has(c.id),
+          grade, percentage, completed,
+        };
+      }),
+    );
+    return base;
   }
 
   async universityExport(applicantId: string) {

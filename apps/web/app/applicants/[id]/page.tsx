@@ -15,6 +15,7 @@ import {
   type AuthUser,
   type ApplicantTermRow,
   type Transcript,
+  type TranscriptCourse,
 } from '@/lib/api';
 import { Shell } from '@/components/Shell';
 
@@ -172,7 +173,7 @@ export default function ApplicantDetailPage() {
             </Panel>
 
             {/* Courses & grades */}
-            <AcademicPanel applicantId={id} moodleUserId={a.moodleUserId ?? null} />
+            <AcademicPanel applicantId={id} />
 
             {/* Finance */}
             <Panel title="Finance">
@@ -399,37 +400,63 @@ function DetailsPanel({ applicant, onSave }: { applicant: ApplicantDetail; onSav
   );
 }
 
-function AcademicPanel({ applicantId, moodleUserId }: { applicantId: string; moodleUserId: number | null }) {
+function AcademicPanel({ applicantId }: { applicantId: string }) {
   const [t, setT] = useState<Transcript | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null); // null = default (first semester)
   useEffect(() => {
-    if (!moodleUserId) return;
     api.get<Transcript>(`/applicants/${applicantId}/moodle/transcript`).then(setT).catch((e) => setErr(e instanceof Error ? e.message : 'failed'));
-  }, [applicantId, moodleUserId]);
-  if (!moodleUserId) return (
-    <Panel title="Courses & grades">
-      <p className="text-sm text-slate-500">Enrolled courses and grades from Moodle appear here once the student is provisioned (pay a semester or use “Provision now”).</p>
-    </Panel>
-  );
+  }, [applicantId]);
+
+  if (err) return <Panel title="Courses & grades"><p className="text-sm text-rose-300">{err}</p></Panel>;
+  if (!t) return <Panel title="Courses & grades"><p className="text-sm text-slate-400">Loading…</p></Panel>;
+  if (t.courses.length === 0) return <Panel title="Courses & grades"><p className="text-sm text-slate-400">No courses — confirm a program first.</p></Panel>;
+
+  // Group by semester (term), ordered by sequence.
+  const groups = new Map<string, { name: string; seq: number; items: TranscriptCourse[] }>();
+  for (const c of t.courses) {
+    const key = c.term?.name ?? '(no semester)';
+    if (!groups.has(key)) groups.set(key, { name: key, seq: c.term?.sequence ?? 999, items: [] });
+    groups.get(key)!.items.push(c);
+  }
+  const terms = Array.from(groups.values()).sort((a, b) => a.seq - b.seq);
+  const openTerm = open ?? terms[0]?.name; // first semester open by default
+  const totalEnrolled = t.courses.filter((c) => c.enrolled).length;
+
   return (
     <Panel title="Courses & grades">
-      {err && <p className="text-sm text-rose-300">{err}</p>}
-      {!t ? <p className="text-sm text-slate-400">Loading grades…</p> : (
-        <table className="w-full text-sm">
-          <thead className="text-left text-xs uppercase text-slate-400"><tr><th className="py-1">Course</th><th className="py-1 text-right">Grade</th><th className="py-1 text-right">%</th><th className="py-1 text-right">Done</th></tr></thead>
-          <tbody>
-            {t.courses.map((c, i) => (
-              <tr key={i} className="border-t border-slate-800">
-                <td className="py-1">{c.course}</td>
-                <td className="py-1 text-right tabular-nums">{c.grade ?? '—'}</td>
-                <td className="py-1 text-right tabular-nums">{c.percentage ?? '—'}</td>
-                <td className="py-1 text-right">{c.completed == null ? '—' : c.completed ? '✓' : '–'}</td>
-              </tr>
-            ))}
-            {t.courses.length === 0 && <tr><td colSpan={4} className="py-3 text-center text-slate-400">No courses yet.</td></tr>}
-          </tbody>
-        </table>
-      )}
+      <p className="text-sm text-slate-500">{totalEnrolled} enrolled of {t.courses.length} courses · grades read from Moodle</p>
+      <div className="space-y-2">
+        {terms.map((term) => {
+          const isOpen = openTerm === term.name;
+          const enr = term.items.filter((c) => c.enrolled).length;
+          return (
+            <div key={term.name} className="rounded-lg border border-slate-800 bg-slate-900/40">
+              <button onClick={() => setOpen(isOpen ? '__none__' : term.name)} className="flex w-full items-center justify-between px-3 py-2 text-sm">
+                <span className="font-medium text-slate-100">{isOpen ? '▾' : '▸'} {term.name}</span>
+                <span className="text-xs text-slate-500">{enr > 0 && <span className="text-emerald-300">{enr} enrolled · </span>}{term.items.length} courses</span>
+              </button>
+              {isOpen && (
+                <table className="w-full text-sm">
+                  <tbody>
+                    {term.items.map((c, i) => (
+                      <tr key={i} className={`border-t border-slate-800 ${c.enrolled ? '' : 'opacity-50'}`}>
+                        <td className="px-3 py-1.5 text-slate-200">
+                          {c.course}
+                          {c.enrolled && <span className="ml-2 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-300">enrolled</span>}
+                        </td>
+                        <td className="w-16 px-3 py-1.5 text-right tabular-nums">{c.grade ?? '—'}</td>
+                        <td className="w-12 px-3 py-1.5 text-right tabular-nums">{c.percentage ?? '—'}</td>
+                        <td className="w-12 px-3 py-1.5 text-right">{c.completed == null ? '—' : c.completed ? '✓' : '–'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </Panel>
   );
 }
