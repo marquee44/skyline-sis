@@ -12,12 +12,11 @@ import {
   type Slot,
   type Consultation,
 } from '@/lib/api';
+import { Shell, Card, dInput, dBtn, dBtnGhost } from '@/components/Shell';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const inputCls =
-  'rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900';
-const btnCls =
-  'rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50';
+const inputCls = dInput;
+const btnCls = dBtn;
 
 export default function AdvisorsPage() {
   const router = useRouter();
@@ -49,28 +48,17 @@ export default function AdvisorsPage() {
     reload();
   }, [reload, router]);
 
-  if (loading) return <p className="p-8 text-slate-500">Loading…</p>;
+  if (loading) return <Shell title="Advisors"><p className="text-slate-400">Loading…</p></Shell>;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-10 px-6 py-10">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Advisors &amp; booking</h1>
-        <nav className="flex gap-4 text-sm text-slate-500">
-          <a href="/dashboard" className="hover:underline">Dashboard</a>
-          <a href="/pipeline" className="hover:underline">Pipeline</a>
-          <a href="/students" className="hover:underline">Students</a>
-          <a href="/applicants" className="hover:underline">Applicants</a>
-          <a href="/catalog" className="hover:underline">Catalog</a>
-          <a href="/account" className="hover:underline">Account</a>
-          <button onClick={() => { setToken(null); router.push('/login'); }} className="hover:underline">Sign out</button>
-        </nav>
-      </header>
-      {error && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p>}
+    <Shell title="Advisors & booking" subtitle={`${advisors.length} advisors`}>
+      <div className="max-w-5xl space-y-8">
+      {error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>}
 
       <CreateAdvisor onChange={reload} setError={setError} />
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Advisors ({advisors.length})</h2>
+        <h2 className="text-base font-semibold text-slate-200">Advisors ({advisors.length})</h2>
         {advisors.map((a) => (
           <AdvisorCard key={a.id} advisor={a} onChange={reload} setError={setError} />
         ))}
@@ -78,7 +66,8 @@ export default function AdvisorsPage() {
       </section>
 
       <BookingPanel advisors={advisors} setError={setError} />
-    </main>
+    </div>
+    </Shell>
   );
 }
 
@@ -87,7 +76,7 @@ function CreateAdvisor({ onChange, setError }: { onChange: () => void; setError:
   const [email, setEmail] = useState('');
   return (
     <form
-      className="flex flex-wrap items-end gap-2 rounded-md border border-slate-200 p-3 dark:border-slate-800"
+      className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-800 bg-slate-900/60 p-3"
       onSubmit={async (e) => {
         e.preventDefault();
         try {
@@ -113,13 +102,13 @@ function AdvisorCard({ advisor, onChange, setError }: { advisor: Advisor; onChan
   const [timezone, setTimezone] = useState('Asia/Dubai');
 
   return (
-    <div className="rounded-md border border-slate-200 p-4 dark:border-slate-800">
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <div className="mb-2 flex items-center justify-between">
         <span className="font-medium">
           {advisor.name} <span className="text-sm text-slate-400">· {advisor.email}{advisor.active ? '' : ' · inactive'}</span>
         </span>
         <button
-          className="text-xs text-rose-500 hover:underline"
+          className="text-xs text-rose-300 hover:underline"
           onClick={async () => {
             try { await api.del(`/advisors/${advisor.id}`); onChange(); }
             catch (err) { setError(err instanceof Error ? err.message : 'Delete failed'); }
@@ -129,11 +118,11 @@ function AdvisorCard({ advisor, onChange, setError }: { advisor: Advisor; onChan
       <ul className="mb-2 space-y-1 text-sm">
         {advisor.availabilityRules.map((r) => (
           <li key={r.id} className="flex items-center gap-2">
-            <span className="text-slate-600 dark:text-slate-300">
+            <span className="text-slate-300">
               {WEEKDAYS[r.weekday]} {r.startTime}–{r.endTime} · {r.slotMinutes}min · {r.timezone}
             </span>
             <button
-              className="text-xs text-rose-500 hover:underline"
+              className="text-xs text-rose-300 hover:underline"
               onClick={async () => {
                 try { await api.del(`/advisors/${advisor.id}/availability/${r.id}`); onChange(); }
                 catch (err) { setError(err instanceof Error ? err.message : 'Delete failed'); }
@@ -215,7 +204,7 @@ function BookingPanel({ advisors, setError }: { advisors: Advisor[]; setError: (
   }
 
   return (
-    <section className="space-y-4 rounded-md border border-slate-200 p-4 dark:border-slate-800">
+    <section className="space-y-4 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
       <h2 className="text-lg font-semibold">Book a consultation</h2>
       <div className="flex flex-wrap items-end gap-2">
         <select className={inputCls} value={advisorId} onChange={(e) => { setAdvisorId(e.target.value); setSlots(null); loadConsultations(e.target.value); }}>
@@ -251,11 +240,11 @@ function BookingPanel({ advisors, setError }: { advisors: Advisor[]; setError: (
               <li key={c.id} className="flex items-center justify-between py-1.5">
                 <span>
                   {fmt(c.scheduledStartUtc)} · {c.applicant?.firstName} {c.applicant?.lastName}
-                  <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${c.status === 'cancelled' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>{c.status}</span>
+                  <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${c.status === 'cancelled' ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'}`}>{c.status}</span>
                 </span>
                 {c.status === 'booked' && (
                   <button
-                    className="text-xs text-rose-500 hover:underline"
+                    className="text-xs text-rose-300 hover:underline"
                     onClick={async () => {
                       try { await api.post(`/consultations/${c.id}/cancel`, {}); await loadConsultations(advisorId); await fetchSlots(); }
                       catch (err) { setError(err instanceof Error ? err.message : 'Cancel failed'); }

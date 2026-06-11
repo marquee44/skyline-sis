@@ -15,6 +15,7 @@ import {
   type ImportSummary,
   type CatalogTerm,
 } from '@/lib/api';
+import { Shell, Card, dInput, dBtn } from '@/components/Shell';
 
 const LEVELS: ProgramLevel[] = ['BA', 'MA', 'MBA', 'PhD', 'professional'];
 
@@ -62,29 +63,18 @@ export default function CatalogPage() {
     router.push('/login');
   }
 
-  if (loading) return <p className="p-8 text-slate-500">Loading…</p>;
+  if (loading) return <Shell title="Catalog"><p className="text-slate-400">Loading…</p></Shell>;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-10 px-6 py-10">
-      <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Catalog admin</h1>
-        <nav className="flex gap-4 text-sm text-slate-500">
-          <a href="/dashboard" className="hover:underline">Dashboard</a>
-          <a href="/pipeline" className="hover:underline">Pipeline</a>
-          <a href="/students" className="hover:underline">Students</a>
-          <a href="/applicants" className="hover:underline">Applicants</a>
-          <a href="/advisors" className="hover:underline">Advisors</a>
-          <a href="/account" className="hover:underline">Account</a>
-          <button onClick={logout} className="hover:underline">Sign out</button>
-        </nav>
-      </header>
-      {error && <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-700">{error}</p>}
-
-      <MoodlePanel onChange={reload} setError={setError} />
-      <Universities unis={unis} onChange={reload} setError={setError} />
-      <Programs programs={programs} unis={unis} onChange={reload} setError={setError} />
-      <Courses courses={courses} programs={programs} onChange={reload} setError={setError} />
-    </main>
+    <Shell title="Catalog" subtitle="Universities · programs · semesters · courses">
+      <div className="max-w-5xl space-y-8">
+        {error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>}
+        <MoodlePanel onChange={reload} setError={setError} />
+        <Universities unis={unis} onChange={reload} setError={setError} />
+        <Programs programs={programs} unis={unis} onChange={reload} setError={setError} />
+        <Courses courses={courses} programs={programs} onChange={reload} setError={setError} />
+      </div>
+    </Shell>
   );
 }
 
@@ -127,7 +117,7 @@ function MoodlePanel({ onChange, setError }: { onChange: () => void; setError: S
           {busy ? 'Working…' : 'Import from Moodle'}
         </button>
         <button
-          className="rounded-md border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-50 dark:border-slate-700"
+          className="rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 border-slate-700"
           disabled={busy}
           onClick={() => run(async () => setMoodleCourses(await api.get<MoodleCourse[]>('/moodle/courses')))}
         >
@@ -135,15 +125,15 @@ function MoodlePanel({ onChange, setError }: { onChange: () => void; setError: S
         </button>
       </div>
 
-      {notice && <p className="rounded-md bg-amber-100 px-3 py-2 text-sm text-amber-800">{notice}</p>}
+      {notice && <p className="rounded-md bg-amber-500/15 px-3 py-2 text-sm text-amber-300">{notice}</p>}
       {summary && (
-        <p className="text-sm text-emerald-700">
+        <p className="text-sm text-emerald-300">
           Imported {summary.universities} universities, {summary.programs} programs, {summary.terms} terms, {summary.courses} courses
           {summary.skipped.length ? ` · ${summary.skipped.length} skipped` : ''}.
         </p>
       )}
       {moodleCourses && (
-        <ul className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-slate-200 p-2 text-sm dark:border-slate-800">
+        <ul className="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-slate-800 p-2 text-sm">
           {moodleCourses.map((c) => (
             <li key={c.id} className="text-slate-600 dark:text-slate-300">
               <span className="text-slate-400">#{c.id}</span> {c.fullname}{' '}
@@ -166,10 +156,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-const inputCls =
-  'rounded-md border border-slate-300 px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900';
-const btnCls =
-  'rounded-md bg-sky-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50';
+const inputCls = dInput;
+const btnCls = dBtn;
 
 type SetErr = (e: string | null) => void;
 
@@ -197,7 +185,7 @@ function Universities({
 
   return (
     <Section title={`Universities (${unis.length})`}>
-      <ul className="divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+      <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
         {unis.map((u) => (
           <li key={u.id} className="flex items-center justify-between px-3 py-2 text-sm">
             <span>
@@ -214,7 +202,7 @@ function Universities({
                   onChange();
                 }, setError)
               }
-              className="text-xs text-rose-500 hover:underline"
+              className="text-xs text-rose-300 hover:underline"
             >
               delete
             </button>
@@ -251,7 +239,7 @@ function TermsEditor({ programId, setError }: { programId: string; setError: Set
   return (
     <div className="mt-1">
       <button
-        className="text-xs text-sky-600 hover:underline"
+        className="text-xs text-purple-400 hover:underline"
         onClick={() => {
           const next = !open;
           setOpen(next);
@@ -289,7 +277,7 @@ function TermFeeRow({ term, setError }: { term: CatalogTerm; setError: SetErr })
       />
       <span className="text-slate-400">{term.tuitionCurrency}</span>
       <button
-        className="text-sky-600 hover:underline"
+        className="text-purple-400 hover:underline"
         onClick={() => guarded(async () => { await api.patch(`/terms/${term.id}`, { tuitionTotal: Number(fee) }); setSaved(true); }, setError)}
       >
         save
@@ -317,7 +305,7 @@ function Programs({
 
   return (
     <Section title={`Programs (${programs.length})`}>
-      <ul className="divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+      <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
         {programs.map((p) => (
           <li key={p.id} className="px-3 py-2 text-sm">
             <div className="flex items-center justify-between">
@@ -336,7 +324,7 @@ function Programs({
                     onChange();
                   }, setError)
                 }
-                className="text-xs text-rose-500 hover:underline"
+                className="text-xs text-rose-300 hover:underline"
               >
                 delete
               </button>
@@ -397,7 +385,7 @@ function Courses({
 
   return (
     <Section title={`Courses (${courses.length})`}>
-      <ul className="divide-y divide-slate-200 rounded-md border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+      <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
         {courses.map((c) => (
           <li key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
             <span>
@@ -413,7 +401,7 @@ function Courses({
                   onChange();
                 }, setError)
               }
-              className="text-xs text-rose-500 hover:underline"
+              className="text-xs text-rose-300 hover:underline"
             >
               delete
             </button>
