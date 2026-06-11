@@ -20,6 +20,16 @@ import {
 import { Shell } from '@/components/Shell';
 
 const DOC_TYPES = ['passport', 'emirates_id', 'prior_diploma', 'transcript', 'photo', 'legalization', 'other'];
+const DOC_LABELS: Record<string, string> = {
+  passport: 'Passport', emirates_id: 'Emirates ID', prior_diploma: 'Prior diploma',
+  transcript: 'Transcript', photo: 'Photo', legalization: 'Legalization', other: 'Other',
+};
+const docLabel = (t: string) => DOC_LABELS[t] ?? t;
+const docStatusPill = (s: string) =>
+  s === 'verified' ? 'bg-emerald-500/15 text-emerald-300'
+  : s === 'uploaded' ? 'bg-sky-500/15 text-sky-300'
+  : s === 'rejected' ? 'bg-rose-500/15 text-rose-300'
+  : 'bg-slate-700 text-slate-300';
 const inputCls = 'rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-purple-500 focus:outline-none';
 const btn = 'rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50';
 const btnAlt = 'rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800';
@@ -115,18 +125,33 @@ export default function ApplicantDetailPage() {
             <DetailsPanel applicant={a} onSave={(patch) => act(() => api.patch(`/applicants/${id}`, patch))} />
 
             <Panel title="Documents">
-              <ul className="space-y-1 text-sm">
-                {docs.map((d) => (
-                  <li key={d.id} className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{d.type}</span>
-                    <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs">{d.status}</span>
-                    <UploadButton documentId={d.id} onDone={reload} setError={setError} />
-                    {d.filePath && <a className="text-xs text-purple-400 hover:underline" href={`/api/documents/${d.id}/file`}>download</a>}
-                    <button className="text-xs text-emerald-300 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'verified' }))}>verify</button>
-                    <button className="text-xs text-rose-300 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'rejected' }))}>reject</button>
-                  </li>
-                ))}
-                {docs.length === 0 && <li className="text-slate-400">No documents requested.</li>}
+              <ul className="space-y-2 text-sm">
+                {docs.map((d) => {
+                  const uploaded = !!d.filePath;
+                  return (
+                    <li key={d.id} className="rounded-lg border border-slate-800 p-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="flex items-center gap-2">
+                          <span className="font-medium text-slate-100">{docLabel(d.type)}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${docStatusPill(d.status)}`}>{d.status}</span>
+                        </span>
+                        <span className="flex items-center gap-2">
+                          {uploaded
+                            ? <a className="text-xs text-purple-400 hover:underline" href={`/api/documents/${d.id}/file`} target="_blank" rel="noreferrer">view file</a>
+                            : <span className="text-xs text-slate-500">no file yet</span>}
+                          <UploadButton documentId={d.id} onDone={reload} setError={setError} />
+                        </span>
+                      </div>
+                      {uploaded && d.status !== 'verified' && (
+                        <div className="mt-2 flex gap-2">
+                          <button className="text-xs text-emerald-300 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'verified' }))}>verify</button>
+                          <button className="text-xs text-rose-300 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'rejected' }))}>reject</button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+                {docs.length === 0 && <li className="text-slate-400">No documents requested yet.</li>}
               </ul>
               <AddDocForm onAdd={(type) => act(() => api.post('/documents', { applicantId: id, type }))} />
             </Panel>
@@ -245,8 +270,8 @@ function AddDocForm({ onAdd }: { onAdd: (type: string) => void }) {
   const [type, setType] = useState('passport');
   return (
     <div className="flex flex-wrap gap-2">
-      <select className={` w-full`} value={type} onChange={(e) => setType(e.target.value)}>
-        {DOC_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
+      <select className={`${inputCls} flex-1`} value={type} onChange={(e) => setType(e.target.value)}>
+        {DOC_TYPES.map((t) => (<option key={t} value={t}>{docLabel(t)}</option>))}
       </select>
       <button className={btnAlt} onClick={() => onAdd(type)}>Request document</button>
     </div>
