@@ -50,13 +50,22 @@ export class DocumentsController {
     return this.documents.setStatus(id, dto);
   }
 
-  // Authenticated download — files never have a public URL.
+  // Authenticated download — files never have a public URL. Known types are served
+  // inline (so they preview in-browser); anything else falls back to attachment.
   @Get(':id/file')
   async file(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
     const { stream, doc } = await this.documents.fileFor(id);
+    const ext = (doc.filePath?.split('.').pop() ?? '').toLowerCase();
+    const MIME: Record<string, string> = {
+      pdf: 'application/pdf', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg',
+      gif: 'image/gif', webp: 'image/webp', heic: 'image/heic', svg: 'image/svg+xml',
+      txt: 'text/plain',
+    };
+    const contentType = MIME[ext] ?? 'application/octet-stream';
+    const inline = contentType !== 'application/octet-stream';
     res.set({
-      'Content-Type': 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${doc.type}-${doc.id}"`,
+      'Content-Type': contentType,
+      'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename="${doc.type}-${doc.id}${ext ? '.' + ext : ''}"`,
     });
     return new StreamableFile(stream);
   }

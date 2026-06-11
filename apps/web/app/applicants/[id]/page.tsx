@@ -25,27 +25,6 @@ const DOC_LABELS: Record<string, string> = {
   transcript: 'Transcript', photo: 'Photo', legalization: 'Legalization', other: 'Other',
 };
 const docLabel = (t: string) => DOC_LABELS[t] ?? t;
-
-// The file endpoint needs the JWT in a header, so a plain <a href> 401s. Open a
-// tab synchronously (within the click gesture, to dodge popup blockers), fetch the
-// file with auth, then point the tab at the resulting blob URL.
-function openDocumentFile(id: string, onError: (m: string) => void) {
-  const win = window.open('', '_blank');
-  (async () => {
-    try {
-      const token = getToken();
-      const res = await fetch(`/api/documents/${id}/file`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      if (!res.ok) throw new Error(`Could not open file (${res.status})`);
-      const url = URL.createObjectURL(await res.blob());
-      if (win) win.location.href = url; else window.location.href = url;
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (e) {
-      win?.close();
-      onError(e instanceof Error ? e.message : 'Failed to open file');
-    }
-  })();
-}
-
 const docStatusPill = (s: string) =>
   s === 'verified' ? 'bg-emerald-500/15 text-emerald-300'
   : s === 'uploaded' ? 'bg-sky-500/15 text-sky-300'
@@ -66,6 +45,22 @@ export default function ApplicantDetailPage() {
   const [me, setMe] = useState<AuthUser | null>(null);
   const [terms, setTerms] = useState<ApplicantTermRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ url: string; type: string } | null>(null);
+
+  async function viewDoc(docId: string) {
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/documents/${docId}/file`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!res.ok) throw new Error(`Could not open file (${res.status})`);
+      const blob = await res.blob();
+      setPreview({ url: URL.createObjectURL(blob), type: blob.type });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to open file');
+    }
+  }
+  function closePreview() {
+    setPreview((p) => { if (p) URL.revokeObjectURL(p.url); return null; });
+  }
 
   const reload = useCallback(async () => {
     try {
@@ -158,7 +153,7 @@ export default function ApplicantDetailPage() {
                         </span>
                         <span className="flex items-center gap-2">
                           {uploaded
-                            ? <button className="text-xs text-purple-400 hover:underline" onClick={() => openDocumentFile(d.id, setError)}>view file</button>
+                            ? <button className="text-xs text-purple-400 hover:underline" onClick={() => viewDoc(d.id)}>view file</button>
                             : <span className="text-xs text-slate-500">no file yet</span>}
                           <UploadButton documentId={d.id} onDone={reload} setError={setError} />
                         </span>
@@ -261,6 +256,27 @@ export default function ApplicantDetailPage() {
           </div>
         </div>
       </div>
+
+      {preview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 sm:p-8" onClick={closePreview}>
+          <div className="relative flex h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-900" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-800 px-4 py-2">
+              <span className="text-sm font-medium text-slate-200">Document preview</span>
+              <span className="flex items-center gap-4">
+                <a href={preview.url} download className="text-xs text-purple-400 hover:underline">download</a>
+                <button onClick={closePreview} className="text-sm text-slate-400 hover:text-white">✕</button>
+              </span>
+            </div>
+            <div className="flex-1 bg-slate-950">
+              {preview.type.startsWith('image/')
+                ? <img src={preview.url} alt="document" className="mx-auto h-full object-contain" />
+                : preview.type === 'application/pdf'
+                ? <iframe src={preview.url} className="h-full w-full" title="document preview" />
+                : <div className="flex h-full items-center justify-center text-sm text-slate-400">Can’t preview this file type — <a href={preview.url} download className="ml-1 text-purple-400 hover:underline">download it</a>.</div>}
+            </div>
+          </div>
+        </div>
+      )}
     </Shell>
   );
 }
