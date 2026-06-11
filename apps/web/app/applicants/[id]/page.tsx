@@ -66,6 +66,12 @@ export default function ApplicantDetailPage() {
 
   if (!a) return <Shell title="Applicant"><p className="text-slate-400">{error ?? 'Loading…'}</p></Shell>;
 
+  const doneTerms = terms.filter((t) => t.status === 'enrolled').length;
+  const totalTerms = terms.length;
+  const pct = totalTerms ? Math.round((doneTerms / totalTerms) * 100) : 0;
+  const current = [...terms].reverse().find((t) => ['enrolled', 'paid', 'invoiced'].includes(t.status)) ?? terms[0];
+  const owes = balance ? Number(balance.outstanding) > 0 : false;
+
   return (
     <Shell
       title={`${a.firstName} ${a.lastName}`}
@@ -77,132 +83,136 @@ export default function ApplicantDetailPage() {
         </span>
       }
     >
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="space-y-6">
         <a href="/applicants" className="text-sm text-slate-400 hover:text-white">← Applicants</a>
-      {error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>}
+        {error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</p>}
 
-      {/* Profile details (view + edit) */}
-      <DetailsPanel applicant={a} onSave={(patch) => act(() => api.patch(`/applicants/${id}`, patch))} />
+        {/* Summary strip */}
+        <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <Stat label="Progress">
+            <div className="text-2xl font-bold text-white">{doneTerms}<span className="text-base font-normal text-slate-500">/{totalTerms || '—'}</span></div>
+            <div className="mt-1.5 h-1.5 w-full rounded-full bg-slate-800"><div className="h-full rounded-full bg-purple-500" style={{ width: `${pct}%` }} /></div>
+            <div className="mt-1 text-xs text-slate-500">{pct}% of semesters{a.stage === 'graduated' ? ' · 🎓' : ''}</div>
+          </Stat>
+          <Stat label="Current semester">
+            <div className="text-lg font-semibold text-white">{current?.name ?? '—'}</div>
+            {current && <div className="text-xs text-slate-500">{current.status}</div>}
+          </Stat>
+          <Stat label="Outstanding">
+            <div className={`text-2xl font-bold ${owes ? 'text-rose-300' : 'text-slate-300'}`}>{balance?.outstanding ?? '—'}</div>
+            <div className="text-xs text-slate-500">{balance?.currency ?? ''} · paid {balance?.paid ?? '—'}</div>
+          </Stat>
+          <Stat label="Moodle">
+            <div className="text-lg font-semibold text-white">{a.moodleUserId ? `#${a.moodleUserId}` : 'not enrolled'}</div>
+            <div className="text-xs text-slate-500">{a.chosenProgram?.name ?? 'no program'}</div>
+          </Stat>
+        </section>
 
-      {/* Academic performance (grades read from Moodle) */}
-      <AcademicPanel applicantId={id} moodleUserId={a.moodleUserId ?? null} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Left column — profile, documents, admin actions */}
+          <div className="space-y-6">
+            <DetailsPanel applicant={a} onSave={(patch) => act(() => api.patch(`/applicants/${id}`, patch))} />
 
-      {/* Consultation (admin test shortcut) */}
-      {me?.role === 'admin' && (a.stage === 'intake_started' || a.stage === 'consultation_booked') && (
-        <Panel title="Consultation (test)">
-          <p className="text-sm text-slate-500">
-            Admin-only: mark a consultation complete without an advisor/booking so you can test the
-            rest of the pipeline. Advances the applicant to <code>consultation_completed</code>.
-          </p>
-          <button className={btn} onClick={() => act(() => api.post(`/applicants/${id}/test-consultation`, {}))}>
-            Complete consultation (test)
-          </button>
-        </Panel>
-      )}
+            <Panel title="Documents">
+              <ul className="space-y-1 text-sm">
+                {docs.map((d) => (
+                  <li key={d.id} className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{d.type}</span>
+                    <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs">{d.status}</span>
+                    <UploadButton documentId={d.id} onDone={reload} setError={setError} />
+                    {d.filePath && <a className="text-xs text-purple-400 hover:underline" href={`/api/documents/${d.id}/file`}>download</a>}
+                    <button className="text-xs text-emerald-300 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'verified' }))}>verify</button>
+                    <button className="text-xs text-rose-300 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'rejected' }))}>reject</button>
+                  </li>
+                ))}
+                {docs.length === 0 && <li className="text-slate-400">No documents requested.</li>}
+              </ul>
+              <AddDocForm onAdd={(type) => act(() => api.post('/documents', { applicantId: id, type }))} />
+            </Panel>
 
-      {/* Program selection */}
-      <Panel title="Program selection">
-        <p className="text-sm text-slate-500">
-          Proposed: {a.proposedProgram?.name ?? '—'} · Chosen: {a.chosenProgram?.name ?? '—'}
-          {a.choiceAdvisorNote ? ` · note: ${a.choiceAdvisorNote}` : ''}
-        </p>
-        <ProposeForm programs={programs} onPropose={(pid) => act(() => api.post(`/applicants/${id}/program/propose`, { programId: pid }))} />
-        <div className="flex flex-wrap gap-2">
-          <button className={btnAlt} onClick={() => act(() => api.post(`/applicants/${id}/program/approve`, {}))}>Approve</button>
-          <button className={btnAlt} onClick={() => act(() => api.post(`/applicants/${id}/program/reject`, { note: 'reconsider' }))}>Reject</button>
-          <button className={btn} onClick={() => act(() => api.post(`/applicants/${id}/program/confirm`, {}))}>Confirm</button>
-        </div>
-      </Panel>
+            <StudentLoginPanel applicantId={id} email={a.email} />
+            <ScholarshipPanel applicant={a} onSave={(p, note) => act(() => api.patch(`/applicants/${id}`, { scholarshipPercent: p, scholarshipNote: note || undefined }))} />
+          </div>
 
-      {/* Documents */}
-      <Panel title="Documents">
-        <ul className="space-y-1 text-sm">
-          {docs.map((d) => (
-            <li key={d.id} className="flex flex-wrap items-center gap-2">
-              <span className="font-medium">{d.type}</span>
-              <span className="rounded-full bg-slate-700 px-2 py-0.5 text-xs">{d.status}</span>
-              <UploadButton documentId={d.id} onDone={reload} setError={setError} />
-              {d.filePath && <a className="text-xs text-purple-400 hover:underline" href={`/api/documents/${d.id}/file`}>download</a>}
-              <button className="text-xs text-emerald-300 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'verified' }))}>verify</button>
-              <button className="text-xs text-rose-300 hover:underline" onClick={() => act(() => api.patch(`/documents/${d.id}/status`, { status: 'rejected' }))}>reject</button>
-            </li>
-          ))}
-          {docs.length === 0 && <li className="text-slate-400">No documents requested.</li>}
-        </ul>
-        <AddDocForm onAdd={(type) => act(() => api.post('/documents', { applicantId: id, type }))} />
-      </Panel>
+          {/* Right column — the academic + financial story */}
+          <div className="space-y-6 lg:col-span-2">
+            {me?.role === 'admin' && (a.stage === 'intake_started' || a.stage === 'consultation_booked') && (
+              <Panel title="Consultation (test)">
+                <p className="text-sm text-slate-500">Admin-only: mark a consultation complete without an advisor/booking. Advances to <code>consultation_completed</code>.</p>
+                <button className={btn} onClick={() => act(() => api.post(`/applicants/${id}/test-consultation`, {}))}>Complete consultation (test)</button>
+              </Panel>
+            )}
 
-      {/* Student login (staff provisions the student's portal account) */}
-      <StudentLoginPanel applicantId={id} email={a.email} />
-
-      {/* Scholarship / discount */}
-      <ScholarshipPanel applicant={a} onSave={(pct, note) => act(() => api.patch(`/applicants/${id}`, { scholarshipPercent: pct, scholarshipNote: note || undefined }))} />
-
-      {/* Semesters (per-term billing + enrolment) */}
-      <Panel title="Semesters">
-        {terms.length === 0 ? (
-          <p className="text-sm text-slate-400">No terms — confirm a program first (the chosen program’s semesters appear here).</p>
-        ) : (
-          <>
-          <p className="text-sm text-slate-500">
-            Progress: {terms.filter((t) => t.status === 'enrolled').length} of {terms.length} semesters enrolled
-            {terms.length > 0 && terms.every((t) => t.status === 'enrolled') && ' · 🎓 all complete'}
-          </p>
-          <ul className="space-y-2">
-            {terms.map((t) => (
-              <TermRow key={t.termId} applicantId={id} term={t} isAdmin={me?.role === 'admin'} act={act} />
-            ))}
-          </ul>
-          </>
-        )}
-      </Panel>
-
-      {/* Finance */}
-      <Panel title="Finance">
-        {balance && (
-          <p className="text-sm text-slate-500">
-            Invoiced {balance.invoiced} · Paid {balance.paid} · Outstanding {balance.outstanding} {balance.currency}
-          </p>
-        )}
-        <button className={btnAlt} onClick={() => act(() => api.post('/invoices', { applicantId: id }))}>Create invoice (from chosen program)</button>
-        <ul className="space-y-2 text-sm">
-          {invoices.map((inv) => (
-            <li key={inv.id} className="rounded-md border border-slate-800 p-2">
-              <div className="flex items-center justify-between">
-                <span>{inv.amountTotal} {inv.currency} · <span className="text-slate-400">{inv.status}</span></span>
-                <span className="flex gap-2">
-                  {inv.status === 'draft' && <button className="text-xs text-purple-400 hover:underline" onClick={() => act(() => api.post(`/invoices/${inv.id}/issue`, {}))}>issue</button>}
-                  <PayButton invoiceId={inv.id} onDone={reload} setError={setError} />
-                </span>
+            {/* Program selection */}
+            <Panel title="Program">
+              <p className="text-sm text-slate-400">Proposed: {a.proposedProgram?.name ?? '—'} · Chosen: {a.chosenProgram?.name ?? '—'}{a.choiceAdvisorNote ? ` · note: ${a.choiceAdvisorNote}` : ''}</p>
+              <ProposeForm programs={programs} onPropose={(pid) => act(() => api.post(`/applicants/${id}/program/propose`, { programId: pid }))} />
+              <div className="flex flex-wrap gap-2">
+                <button className={btnAlt} onClick={() => act(() => api.post(`/applicants/${id}/program/approve`, {}))}>Approve</button>
+                <button className={btnAlt} onClick={() => act(() => api.post(`/applicants/${id}/program/reject`, { note: 'reconsider' }))}>Reject</button>
+                <button className={btn} onClick={() => act(() => api.post(`/applicants/${id}/program/confirm`, {}))}>Confirm</button>
               </div>
-            </li>
-          ))}
-          {invoices.length === 0 && <li className="text-slate-400">No invoices.</li>}
-        </ul>
-      </Panel>
+            </Panel>
 
-      {/* Moodle */}
-      <Panel title="Moodle">
-        <p className="text-sm text-slate-500">Moodle user id: {a.moodleUserId ?? '—'}</p>
-        <div className="flex flex-wrap gap-2">
-          <button className={btnAlt} onClick={() => act(() => api.post(`/applicants/${id}/moodle/provision`, {}))}>Provision / retry</button>
-          {me?.role === 'admin' && (
-            <button className={btn} onClick={() => act(() => api.post(`/applicants/${id}/moodle/provision-test`, {}))}>Provision to Moodle now (test)</button>
-          )}
+            {/* Semesters + progress */}
+            <Panel title="Semesters & progress">
+              {terms.length === 0 ? (
+                <p className="text-sm text-slate-400">No semesters yet — confirm a program first.</p>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <div className="h-2 flex-1 rounded-full bg-slate-800"><div className="h-full rounded-full bg-purple-500" style={{ width: `${pct}%` }} /></div>
+                    <span className="text-xs text-slate-400">{doneTerms}/{totalTerms} enrolled{terms.every((t) => t.status === 'enrolled') ? ' · 🎓' : ''}</span>
+                  </div>
+                  <ul className="space-y-2">
+                    {terms.map((t) => <TermRow key={t.termId} applicantId={id} term={t} isAdmin={me?.role === 'admin'} act={act} />)}
+                  </ul>
+                </>
+              )}
+            </Panel>
+
+            {/* Courses & grades */}
+            <AcademicPanel applicantId={id} moodleUserId={a.moodleUserId ?? null} />
+
+            {/* Finance */}
+            <Panel title="Finance">
+              {balance && <p className="text-sm text-slate-400">Invoiced {balance.invoiced} · Paid <span className="text-emerald-300">{balance.paid}</span> · Outstanding <span className={owes ? 'text-rose-300' : ''}>{balance.outstanding}</span> {balance.currency}</p>}
+              <button className={btnAlt} onClick={() => act(() => api.post('/invoices', { applicantId: id }))}>Create invoice (from chosen program)</button>
+              <ul className="space-y-2 text-sm">
+                {invoices.map((inv) => (
+                  <li key={inv.id} className="rounded-lg border border-slate-800 p-2">
+                    <div className="flex items-center justify-between">
+                      <span>{inv.amountTotal} {inv.currency} · <span className="text-slate-400">{inv.status}</span></span>
+                      <span className="flex gap-2">
+                        {inv.status === 'draft' && <button className="text-xs text-purple-400 hover:underline" onClick={() => act(() => api.post(`/invoices/${inv.id}/issue`, {}))}>issue</button>}
+                        <PayButton invoiceId={inv.id} onDone={reload} setError={setError} />
+                      </span>
+                    </div>
+                  </li>
+                ))}
+                {invoices.length === 0 && <li className="text-slate-400">No invoices.</li>}
+              </ul>
+            </Panel>
+
+            {/* Moodle */}
+            <Panel title="Moodle access">
+              <p className="text-sm text-slate-400">Moodle user id: {a.moodleUserId ?? '—'}</p>
+              <div className="flex flex-wrap gap-2">
+                <button className={btnAlt} onClick={() => act(() => api.post(`/applicants/${id}/moodle/provision`, {}))}>Provision / retry</button>
+                {me?.role === 'admin' && <button className={btn} onClick={() => act(() => api.post(`/applicants/${id}/moodle/provision-test`, {}))}>Provision now (test)</button>}
+              </div>
+            </Panel>
+
+            {/* History */}
+            <Panel title="History">
+              <ol className="space-y-1 border-l-2 border-slate-700 pl-3 text-xs text-slate-500">
+                {a.stageTransitions?.map((t) => (
+                  <li key={t.id}>{t.fromStage ?? '—'} → {t.toStage}{t.note ? ` · ${t.note}` : ''} · {new Date(t.createdAt).toLocaleString()}</li>
+                ))}
+              </ol>
+            </Panel>
+          </div>
         </div>
-        {me?.role === 'admin' && (
-          <p className="text-xs text-slate-400">Admin test: skips the payment gate. The student is enrolled in their chosen program’s Moodle courses (none if the program has no courses).</p>
-        )}
-      </Panel>
-
-      {/* History */}
-      <Panel title="History">
-        <ol className="space-y-1 border-l-2 border-slate-800 pl-3 text-xs text-slate-500 dark:border-slate-700">
-          {a.stageTransitions?.map((t) => (
-            <li key={t.id}>{t.fromStage ?? '—'} → {t.toStage}{t.note ? ` · ${t.note}` : ''} · {new Date(t.createdAt).toLocaleString()}</li>
-          ))}
-        </ol>
-      </Panel>
       </div>
     </Shell>
   );
@@ -221,7 +231,7 @@ function ProposeForm({ programs, onPropose }: { programs: Program[]; onPropose: 
   const [pid, setPid] = useState('');
   return (
     <div className="flex flex-wrap gap-2">
-      <select className={inputCls} value={pid} onChange={(e) => setPid(e.target.value)}>
+      <select className={` w-full`} value={pid} onChange={(e) => setPid(e.target.value)}>
         <option value="">Program…</option>
         {programs.filter((p) => p.active).map((p) => (<option key={p.id} value={p.id}>{p.name} ({p.level})</option>))}
       </select>
@@ -234,7 +244,7 @@ function AddDocForm({ onAdd }: { onAdd: (type: string) => void }) {
   const [type, setType] = useState('passport');
   return (
     <div className="flex flex-wrap gap-2">
-      <select className={inputCls} value={type} onChange={(e) => setType(e.target.value)}>
+      <select className={` w-full`} value={type} onChange={(e) => setType(e.target.value)}>
         {DOC_TYPES.map((t) => (<option key={t} value={t}>{t}</option>))}
       </select>
       <button className={btnAlt} onClick={() => onAdd(type)}>Request document</button>
@@ -288,6 +298,15 @@ function ScholarshipPanel({ applicant, onSave }: { applicant: ApplicantDetail; o
       </div>
       <p className="text-xs text-slate-400">Applies to semesters invoiced after saving (already-issued invoices are unchanged).</p>
     </Panel>
+  );
+}
+
+function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+      <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
+      <div className="mt-1">{children}</div>
+    </div>
   );
 }
 
@@ -359,18 +378,18 @@ function DetailsPanel({ applicant, onSave }: { applicant: ApplicantDetail; onSav
   return (
     <Panel title="Edit details">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <L label="Phone"><input className={inputCls} value={f.phone} onChange={(e) => set('phone', e.target.value)} /></L>
-        <L label="Date of birth"><input className={inputCls} type="date" value={f.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} /></L>
-        <L label="Gender"><select className={inputCls} value={f.gender} onChange={(e) => set('gender', e.target.value)}><option value="">—</option><option>Female</option><option>Male</option><option>Other</option></select></L>
-        <L label="Country of origin"><input className={inputCls} value={f.countryOfOrigin} onChange={(e) => set('countryOfOrigin', e.target.value)} /></L>
-        <L label="Residence city"><input className={inputCls} value={f.residenceCity} onChange={(e) => set('residenceCity', e.target.value)} /></L>
-        <L label="Address"><input className={inputCls} value={f.addressLine} onChange={(e) => set('addressLine', e.target.value)} /></L>
-        <L label="Prior education"><input className={inputCls} value={f.priorEducation} onChange={(e) => set('priorEducation', e.target.value)} /></L>
-        <L label="Interests"><input className={inputCls} value={f.interests} onChange={(e) => set('interests', e.target.value)} /></L>
-        <L label="Sponsor name"><input className={inputCls} value={f.sponsorName} onChange={(e) => set('sponsorName', e.target.value)} /></L>
-        <L label="Sponsor contact"><input className={inputCls} value={f.sponsorContact} onChange={(e) => set('sponsorContact', e.target.value)} /></L>
-        <L label="Emergency contact name"><input className={inputCls} value={f.emergencyContactName} onChange={(e) => set('emergencyContactName', e.target.value)} /></L>
-        <L label="Emergency contact phone"><input className={inputCls} value={f.emergencyContactPhone} onChange={(e) => set('emergencyContactPhone', e.target.value)} /></L>
+        <L label="Phone"><input className={` w-full`} value={f.phone} onChange={(e) => set('phone', e.target.value)} /></L>
+        <L label="Date of birth"><input className={` w-full`} type="date" value={f.dateOfBirth} onChange={(e) => set('dateOfBirth', e.target.value)} /></L>
+        <L label="Gender"><select className={` w-full`} value={f.gender} onChange={(e) => set('gender', e.target.value)}><option value="">—</option><option>Female</option><option>Male</option><option>Other</option></select></L>
+        <L label="Country of origin"><input className={` w-full`} value={f.countryOfOrigin} onChange={(e) => set('countryOfOrigin', e.target.value)} /></L>
+        <L label="Residence city"><input className={` w-full`} value={f.residenceCity} onChange={(e) => set('residenceCity', e.target.value)} /></L>
+        <L label="Address"><input className={` w-full`} value={f.addressLine} onChange={(e) => set('addressLine', e.target.value)} /></L>
+        <L label="Prior education"><input className={` w-full`} value={f.priorEducation} onChange={(e) => set('priorEducation', e.target.value)} /></L>
+        <L label="Interests"><input className={` w-full`} value={f.interests} onChange={(e) => set('interests', e.target.value)} /></L>
+        <L label="Sponsor name"><input className={` w-full`} value={f.sponsorName} onChange={(e) => set('sponsorName', e.target.value)} /></L>
+        <L label="Sponsor contact"><input className={` w-full`} value={f.sponsorContact} onChange={(e) => set('sponsorContact', e.target.value)} /></L>
+        <L label="Emergency contact name"><input className={` w-full`} value={f.emergencyContactName} onChange={(e) => set('emergencyContactName', e.target.value)} /></L>
+        <L label="Emergency contact phone"><input className={` w-full`} value={f.emergencyContactPhone} onChange={(e) => set('emergencyContactPhone', e.target.value)} /></L>
       </div>
       <div className="flex gap-2">
         <button className={btn} onClick={save}>Save</button>
@@ -387,9 +406,13 @@ function AcademicPanel({ applicantId, moodleUserId }: { applicantId: string; moo
     if (!moodleUserId) return;
     api.get<Transcript>(`/applicants/${applicantId}/moodle/transcript`).then(setT).catch((e) => setErr(e instanceof Error ? e.message : 'failed'));
   }, [applicantId, moodleUserId]);
-  if (!moodleUserId) return null;
+  if (!moodleUserId) return (
+    <Panel title="Courses & grades">
+      <p className="text-sm text-slate-500">Enrolled courses and grades from Moodle appear here once the student is provisioned (pay a semester or use “Provision now”).</p>
+    </Panel>
+  );
   return (
-    <Panel title="Academic (grades from Moodle)">
+    <Panel title="Courses & grades">
       {err && <p className="text-sm text-rose-300">{err}</p>}
       {!t ? <p className="text-sm text-slate-400">Loading grades…</p> : (
         <table className="w-full text-sm">
