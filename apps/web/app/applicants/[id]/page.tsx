@@ -25,6 +25,27 @@ const DOC_LABELS: Record<string, string> = {
   transcript: 'Transcript', photo: 'Photo', legalization: 'Legalization', other: 'Other',
 };
 const docLabel = (t: string) => DOC_LABELS[t] ?? t;
+
+// The file endpoint needs the JWT in a header, so a plain <a href> 401s. Open a
+// tab synchronously (within the click gesture, to dodge popup blockers), fetch the
+// file with auth, then point the tab at the resulting blob URL.
+function openDocumentFile(id: string, onError: (m: string) => void) {
+  const win = window.open('', '_blank');
+  (async () => {
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/documents/${id}/file`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+      if (!res.ok) throw new Error(`Could not open file (${res.status})`);
+      const url = URL.createObjectURL(await res.blob());
+      if (win) win.location.href = url; else window.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e) {
+      win?.close();
+      onError(e instanceof Error ? e.message : 'Failed to open file');
+    }
+  })();
+}
+
 const docStatusPill = (s: string) =>
   s === 'verified' ? 'bg-emerald-500/15 text-emerald-300'
   : s === 'uploaded' ? 'bg-sky-500/15 text-sky-300'
@@ -137,7 +158,7 @@ export default function ApplicantDetailPage() {
                         </span>
                         <span className="flex items-center gap-2">
                           {uploaded
-                            ? <a className="text-xs text-purple-400 hover:underline" href={`/api/documents/${d.id}/file`} target="_blank" rel="noreferrer">view file</a>
+                            ? <button className="text-xs text-purple-400 hover:underline" onClick={() => openDocumentFile(d.id, setError)}>view file</button>
                             : <span className="text-xs text-slate-500">no file yet</span>}
                           <UploadButton documentId={d.id} onDone={reload} setError={setError} />
                         </span>
