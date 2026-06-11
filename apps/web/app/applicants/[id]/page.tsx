@@ -311,11 +311,11 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-function DField({ label, value }: { label: string; value?: string | null }) {
+function DField({ label, value, className = '' }: { label: string; value?: string | null; className?: string }) {
   return (
-    <div>
+    <div className={`min-w-0 ${className}`}>
       <dt className="text-xs text-slate-400">{label}</dt>
-      <dd className={value ? '' : 'text-slate-400'}>{value || '—'}</dd>
+      <dd className={`break-words ${value ? 'text-slate-100' : 'text-slate-500'}`}>{value || '—'}</dd>
     </div>
   );
 }
@@ -357,7 +357,8 @@ function DetailsPanel({ applicant, onSave }: { applicant: ApplicantDetail; onSav
     return (
       <Panel title="Details">
         <div className="-mt-9 flex justify-end"><button className="text-xs text-purple-400 hover:underline" onClick={() => setEdit(true)}>edit</button></div>
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-5 text-sm sm:grid-cols-2">
+          <DField label="Full name" value={`${applicant.firstName} ${applicant.lastName}`.trim()} className="sm:col-span-2" />
           <DField label="Email" value={applicant.email} />
           <DField label="Phone" value={applicant.phone} />
           <DField label="Date of birth" value={applicant.dateOfBirth ? new Date(applicant.dateOfBirth).toLocaleDateString() : null} />
@@ -366,9 +367,9 @@ function DetailsPanel({ applicant, onSave }: { applicant: ApplicantDetail; onSav
           <DField label="Residence city" value={applicant.residenceCity} />
           <DField label="Address" value={applicant.addressLine} />
           <DField label="Prior education" value={applicant.priorEducation} />
-          <DField label="Interests" value={applicant.interests} />
+          <DField label="Interests" value={applicant.interests} className="sm:col-span-2" />
         </dl>
-        <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2 border-t border-slate-800 pt-3 text-sm dark:border-slate-800 sm:grid-cols-2">
+        <div className="mt-5 grid grid-cols-1 gap-x-8 gap-y-5 border-t border-slate-800 pt-5 text-sm sm:grid-cols-2">
           <DField label="Sponsor" value={applicant.sponsorName ? `${applicant.sponsorName}${applicant.sponsorContact ? ' · ' + applicant.sponsorContact : ''}` : null} />
           <DField label="Emergency contact" value={applicant.emergencyContactName ? `${applicant.emergencyContactName}${applicant.emergencyContactPhone ? ' · ' + applicant.emergencyContactPhone : ''}` : null} />
         </div>
