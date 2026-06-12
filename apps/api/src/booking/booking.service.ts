@@ -199,6 +199,7 @@ export class BookingService {
       include: {
         advisor: { select: { id: true, name: true } },
         applicant: { select: { id: true, firstName: true, lastName: true, email: true } },
+        record: true,
       },
     });
   }

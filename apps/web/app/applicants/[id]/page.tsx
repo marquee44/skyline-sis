@@ -226,6 +226,18 @@ export default function ApplicantDetailPage() {
                       </select>
                       {c.zoomJoinUrl && <a href={c.zoomJoinUrl} target="_blank" rel="noreferrer" className="text-xs text-purple-400 hover:underline">Join Zoom →</a>}
                     </div>
+                    {c.record && (c.record.goal || c.record.notes || c.record.fitProgramArea || c.record.priorEducationLevel) && (
+                      <div className="mt-2 space-y-1 border-t border-slate-800 pt-2 text-xs">
+                        <div className="font-medium text-purple-300">Prep brief <span className="font-normal text-slate-500">· from intake questionnaire</span></div>
+                        {c.record.notes && <p className="text-slate-300">{c.record.notes}</p>}
+                        <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-slate-400">
+                          {c.record.fitProgramArea && <span><span className="text-slate-500">Interest:</span> {c.record.fitProgramArea}</span>}
+                          {(c.record.priorEducationLevel || c.record.priorEducationField) && <span><span className="text-slate-500">Education:</span> {[c.record.priorEducationLevel, c.record.priorEducationField].filter(Boolean).join(' · ')}</span>}
+                          {c.record.yearsExperience != null && <span><span className="text-slate-500">Experience:</span> {c.record.yearsExperience}y</span>}
+                          {c.record.goal && <span><span className="text-slate-500">Goal:</span> {c.record.goal}</span>}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </Panel>

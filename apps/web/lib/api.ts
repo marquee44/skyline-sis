@@ -387,4 +387,12 @@ export interface Consultation {
   zoomJoinUrl: string | null;
   advisor?: { id: string; name: string };
   applicant?: { id: string; firstName: string; lastName: string; email: string };
+  record?: {
+    goal: string | null;
+    priorEducationLevel: string | null;
+    priorEducationField: string | null;
+    yearsExperience: number | null;
+    fitProgramArea: string | null;
+    notes: string | null;
+  } | null;
 }
