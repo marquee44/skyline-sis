@@ -8,11 +8,12 @@ import { ApplicantsModule } from '../applicants/applicants.module';
 // imports it) — a cross-module import of a worker-owning module deadlocks app boot.
 import { PublicController } from '../public/public.controller';
 import { PublicBookingService } from '../public/public-booking.service';
+import { QuestionnaireService } from '../public/questionnaire.service';
 
 @Module({
   imports: [AuthModule, ApplicantsModule],
   controllers: [BookingController, PublicController],
-  providers: [BookingService, BookingRemindersService, PublicBookingService],
+  providers: [BookingService, BookingRemindersService, PublicBookingService, QuestionnaireService],
   exports: [BookingService],
 })
 export class BookingModule {}

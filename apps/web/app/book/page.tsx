@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
 
 type Slot = { startUtc: string; endUtc: string };
-type BookConfig = { available: boolean; programs: { id: string; name: string; level: string }[]; turnstileSiteKey: string | null };
+type BookConfig = { available: boolean; programs: { id: string; name: string; level: string }[]; turnstileSiteKey: string | null; aiEnabled?: boolean };
+type BookResult = { when: string; zoomJoinUrl: string | null; consultationId?: string };
 
 declare global {
   interface Window { onTurnstile?: (token: string) => void }
@@ -20,7 +21,7 @@ export default function BookPage() {
   const [token, setTokenVal] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ when: string; zoomJoinUrl: string | null } | null>(null);
+  const [done, setDone] = useState<BookResult | null>(null);
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
@@ -61,7 +62,7 @@ export default function BookPage() {
     if (!selSlot) { setError('Please pick a time.'); return; }
     setBusy(true); setError(null);
     try {
-      const res = await api.post<{ when: string; zoomJoinUrl: string | null }>('/public/booking', {
+      const res = await api.post<BookResult>('/public/booking', {
         ...f, scheduledStartUtc: selSlot, studentTimezone: tz, turnstileToken: token,
       });
       setDone(res);
@@ -86,6 +87,7 @@ export default function BookPage() {
             <p className="mt-1 text-slate-600">{done.when} ({tz})</p>
             <p className="mt-3 text-sm text-slate-500">We've emailed you a confirmation. An advisor will meet you here:</p>
             {done.zoomJoinUrl && <a href={done.zoomJoinUrl} className="mt-2 inline-block rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-500">Join link</a>}
+            {config?.aiEnabled && done.consultationId && <Questionnaire consultationId={done.consultationId} />}
           </div>
         ) : config && !config.available ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500 shadow-sm">Online booking isn't available right now. Please check back soon.</div>
@@ -149,3 +151,64 @@ export default function BookPage() {
 }
 
 const inp = 'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none';
+
+// Optional AI questionnaire shown after booking — one adaptive question at a time,
+// distilled into the advisor's prep brief. Fully skippable.
+function Questionnaire({ consultationId }: { consultationId: string }) {
+  const [answers, setAnswers] = useState<{ q: string; a: string }[]>([]);
+  const [question, setQuestion] = useState<string | null>(null);
+  const [val, setVal] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [hidden, setHidden] = useState(false);
+
+  async function send(nextAnswers: { q: string; a: string }[]) {
+    setBusy(true);
+    try {
+      const res = await api.post<{ done: boolean; nextQuestion: string | null }>('/public/booking/questionnaire', { consultationId, answers: nextAnswers });
+      if (res.done || !res.nextQuestion) setFinished(true);
+      else { setQuestion(res.nextQuestion); setVal(''); }
+    } catch { setFinished(true); }
+    finally { setBusy(false); }
+  }
+
+  if (hidden) return null;
+  if (finished) return <p className="mt-6 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Thanks! Your advisor will have your details before the call. 🙌</p>;
+
+  if (!started) {
+    return (
+      <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
+        <p className="text-sm font-medium text-slate-700">Help your advisor prepare (optional)</p>
+        <p className="mt-1 text-xs text-slate-500">A few quick questions so your consultation is more useful. Takes under a minute.</p>
+        <div className="mt-3 flex gap-2">
+          <button onClick={() => { setStarted(true); send([]); }} className="rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-500">Start</button>
+          <button onClick={() => setHidden(true)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-white">No thanks</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
+      <p className="text-xs uppercase tracking-wide text-slate-400">Question {answers.length + 1}</p>
+      <p className="mt-1 text-sm font-medium text-slate-800">{busy && !question ? 'Thinking…' : question ?? 'Loading…'}</p>
+      <textarea
+        className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+        rows={2}
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        placeholder="Your answer…"
+        disabled={busy || !question}
+      />
+      <div className="mt-2 flex gap-2">
+        <button
+          disabled={busy || !question || !val.trim()}
+          onClick={() => { const next = [...answers, { q: question!, a: val.trim() }]; setAnswers(next); send(next); }}
+          className="rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50"
+        >{busy ? '…' : 'Next'}</button>
+        <button onClick={() => setFinished(true)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-white">Finish</button>
+      </div>
+    </div>
+  );
+}

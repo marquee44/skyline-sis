@@ -73,6 +73,7 @@ export class PublicBookingService {
     const local = DateTime.fromJSDate(consultation.scheduledStartUtc).setZone(dto.studentTimezone);
     return {
       booked: true,
+      consultationId: consultation.id,
       when: local.toFormat("cccc d LLLL yyyy 'at' HH:mm"),
       timezone: dto.studentTimezone,
       zoomJoinUrl: consultation.zoomJoinUrl ?? null,

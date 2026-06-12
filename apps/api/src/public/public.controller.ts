@@ -2,18 +2,30 @@ import { BadRequestException, Body, Controller, Get, Post, Query, Req, UseGuards
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { PublicBookingService } from './public-booking.service';
-import { PublicBookDto } from './dto';
+import { QuestionnaireService } from './questionnaire.service';
+import { PublicBookDto, QuestionnaireDto } from './dto';
 import { verifyTurnstile } from './turnstile';
 
 // No auth guard — this is the public self-service booking surface. Rate-limited.
 @UseGuards(ThrottlerGuard)
 @Controller('public/booking')
 export class PublicController {
-  constructor(private readonly svc: PublicBookingService) {}
+  constructor(
+    private readonly svc: PublicBookingService,
+    private readonly questionnaire: QuestionnaireService,
+  ) {}
 
   @Get('config')
-  config() {
-    return this.svc.config();
+  async config() {
+    const cfg = await this.svc.config();
+    return { ...cfg, aiEnabled: this.questionnaire.available() };
+  }
+
+  // AI "help your advisor prepare" questionnaire — runs after booking, optional.
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post('questionnaire')
+  questionnaireStep(@Body() dto: QuestionnaireDto) {
+    return this.questionnaire.step(dto.consultationId, dto.answers ?? []);
   }
 
   @Throttle({ default: { limit: 30, ttl: 60_000 } })

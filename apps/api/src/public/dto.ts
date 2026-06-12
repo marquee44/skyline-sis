@@ -1,4 +1,12 @@
-import { IsEmail, IsISO8601, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsArray, IsEmail, IsISO8601, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+
+export class QuestionnaireDto {
+  @IsString() @MaxLength(80)
+  consultationId!: string;
+
+  @IsOptional() @IsArray()
+  answers?: { q: string; a: string }[];
+}
 
 export class PublicBookDto {
   @IsString() @MinLength(1) @MaxLength(100)
