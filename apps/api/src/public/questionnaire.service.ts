@@ -50,14 +50,14 @@ export class QuestionnaireService {
       ? safeAnswers.map((x, i) => `Q${i + 1}: ${x.q}\nA${i + 1}: ${x.a}`).join('\n\n')
       : '(no answers yet — ask the first question)';
 
-    // What the student already gave on the booking form — never re-ask these.
+    // ONLY what the student typed on the booking form — never their stored/derived
+    // profile (so the bot can't "know" anything that wasn't entered here).
     const a = consultation.applicant;
     const known: string[] = [];
-    if (a.interests) known.push(a.interests); // e.g. "Interested in: Psihologija"
+    // interests holds the raw "Interested in: <program>" the form set at booking
+    // (later enriched by this very questionnaire — guard so we never replay that).
+    if (a.interests?.startsWith('Interested in:')) known.push(a.interests);
     if (a.countryOfOrigin) known.push(`From: ${a.countryOfOrigin}`);
-    if (a.residenceCity) known.push(`Lives in: ${a.residenceCity}`);
-    if (a.priorEducation) known.push(`Prior education: ${a.priorEducation}`);
-    if (a.phone) known.push('Phone on file');
     const knownBlock = known.length ? known.join('; ') : '(nothing beyond their name)';
 
     const system =
