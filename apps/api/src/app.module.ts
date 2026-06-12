@@ -18,6 +18,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { FinanceModule } from './finance/finance.module';
 import { MoodleModule } from './moodle/moodle.module';
 import { MeModule } from './me/me.module';
+import { KnowledgeModule } from './knowledge/knowledge.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { MeModule } from './me/me.module';
     FinanceModule,
     MoodleModule,
     MeModule,
+    KnowledgeModule,
   ],
 })
 export class AppModule {}

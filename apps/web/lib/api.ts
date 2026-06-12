@@ -94,6 +94,15 @@ export interface Course {
   term?: { id: string; name: string; sequence: number } | null;
 }
 
+export interface KnowledgeEntry {
+  id: string;
+  question: string;
+  answer: string;
+  category: string | null;
+  active: boolean;
+  sortOrder: number;
+}
+
 export interface MoodleCategory {
   id: number;
   name: string;

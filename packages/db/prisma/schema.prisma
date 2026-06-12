@@ -554,3 +554,18 @@ model Forward {
   @@index([applicantId])
   @@map("forwards")
 }
+
+// Editable Admissions FAQ — the ONLY freeform knowledge the public questionnaire
+// bot may answer from (plus catalog facts). Staff manage these in the app.
+model KnowledgeEntry {
+  id        String   @id @default(uuid())
+  question  String
+  answer    String
+  category  String?
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("knowledge_entries")
+}
