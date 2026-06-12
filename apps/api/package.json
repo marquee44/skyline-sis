@@ -17,6 +17,7 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.15",
+    "@nestjs/throttler": "^6.5.0",
     "@skyline/db": "workspace:*",
     "archiver": "^8.0.0",
     "bcryptjs": "^2.4.3",

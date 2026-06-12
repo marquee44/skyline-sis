@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
@@ -25,6 +26,7 @@ import { MeModule } from './me/me.module';
       isGlobal: true,
       envFilePath: ['../../.env', '.env'],
     }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     PrismaModule,
     HealthModule,
     JobsModule,

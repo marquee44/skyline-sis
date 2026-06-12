@@ -4,10 +4,15 @@ import { BookingService } from './booking.service';
 import { BookingRemindersService } from './reminders.service';
 import { AuthModule } from '../auth/auth.module';
 import { ApplicantsModule } from '../applicants/applicants.module';
+// Public self-service booking lives INSIDE this module (not a separate module that
+// imports it) — a cross-module import of a worker-owning module deadlocks app boot.
+import { PublicController } from '../public/public.controller';
+import { PublicBookingService } from '../public/public-booking.service';
 
 @Module({
   imports: [AuthModule, ApplicantsModule],
-  controllers: [BookingController],
-  providers: [BookingService, BookingRemindersService],
+  controllers: [BookingController, PublicController],
+  providers: [BookingService, BookingRemindersService, PublicBookingService],
+  exports: [BookingService],
 })
 export class BookingModule {}

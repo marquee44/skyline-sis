@@ -37,6 +37,9 @@ export class CreateApplicantDto {
   @IsOptional() @IsString()
   interests?: string;
 
+  @IsOptional() @IsString() @MaxLength(40)
+  leadSource?: string;
+
   @IsOptional() @IsDateString()
   dateOfBirth?: string;
 

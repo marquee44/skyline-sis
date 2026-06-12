@@ -136,6 +136,10 @@ model Advisor {
   email  String  @unique
   active Boolean @default(true)
 
+  // The single advisor whose availability backs the public self-booking page.
+  // Public bookings land here, then staff reassign to a specific advisor.
+  publicBooking Boolean @default(false) @map("public_booking")
+
   availabilityRules AvailabilityRule[]
   applicants        Applicant[]
   consultations     Consultation[]
@@ -347,6 +351,8 @@ model Applicant {
   sponsorContact        String?   @map("sponsor_contact")
   emergencyContactName  String?   @map("emergency_contact_name")
   emergencyContactPhone String?   @map("emergency_contact_phone")
+  // Where the lead came from, e.g. "public_booking" for the self-service page.
+  leadSource            String?   @map("lead_source")
 
   stage           ApplicantStage @default(intake_started)
 
