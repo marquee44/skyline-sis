@@ -16,6 +16,8 @@ import {
   type ApplicantTermRow,
   type Transcript,
   type TranscriptCourse,
+  type Consultation,
+  type Advisor,
 } from '@/lib/api';
 import { Shell } from '@/components/Shell';
 
@@ -44,6 +46,8 @@ export default function ApplicantDetailPage() {
   const [balance, setBalance] = useState<Balance | null>(null);
   const [me, setMe] = useState<AuthUser | null>(null);
   const [terms, setTerms] = useState<ApplicantTermRow[]>([]);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [advisors, setAdvisors] = useState<Advisor[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ url: string; type: string } | null>(null);
 
@@ -78,7 +82,7 @@ export default function ApplicantDetailPage() {
 
   const reload = useCallback(async () => {
     try {
-      const [ad, progs, dl, inv, bal, who, trm] = await Promise.all([
+      const [ad, progs, dl, inv, bal, who, trm, cons, advs] = await Promise.all([
         api.get<ApplicantDetail>(`/applicants/${id}`),
         api.get<Program[]>('/programs'),
         api.get<DocumentRec[]>(`/documents?applicantId=${id}`),
@@ -86,8 +90,11 @@ export default function ApplicantDetailPage() {
         api.get<Balance>(`/applicants/${id}/balance`),
         api.get<AuthUser>('/auth/me'),
         api.get<ApplicantTermRow[]>(`/applicants/${id}/terms`),
+        api.get<Consultation[]>(`/consultations?applicantId=${id}`),
+        api.get<Advisor[]>('/advisors'),
       ]);
       setA(ad); setPrograms(progs); setDocs(dl); setInvoices(inv); setBalance(bal); setMe(who); setTerms(trm);
+      setConsultations(cons); setAdvisors(advs);
       setError(null);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) { setToken(null); router.push('/login'); return; }
@@ -196,6 +203,34 @@ export default function ApplicantDetailPage() {
 
           {/* Right column — the academic + financial story */}
           <div className="space-y-6 lg:col-span-2">
+            {/* Booked consultation(s) — assign an advisor + Zoom link */}
+            {consultations.length > 0 && (
+              <Panel title="Consultation">
+                {consultations.map((c) => (
+                  <div key={c.id} className="space-y-2 rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-slate-100">
+                        {new Date(c.scheduledStartUtc).toLocaleString(undefined, { timeZone: c.studentTimezone, dateStyle: 'medium', timeStyle: 'short' })}
+                        <span className="ml-2 text-xs font-normal text-slate-500">{c.studentTimezone}</span>
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${c.status === 'completed' ? 'bg-emerald-500/15 text-emerald-300' : c.status === 'cancelled' || c.status === 'no_show' ? 'bg-rose-500/15 text-rose-300' : 'bg-sky-500/15 text-sky-300'}`}>{c.status}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-slate-400">Advisor</span>
+                      <select
+                        className={`${inputCls} py-1 text-xs`}
+                        value={c.advisor?.id ?? ''}
+                        onChange={(e) => act(() => api.post(`/consultations/${c.id}/reassign`, { advisorId: e.target.value }))}
+                      >
+                        {advisors.filter((adv) => adv.active).map((adv) => <option key={adv.id} value={adv.id}>{adv.name}</option>)}
+                      </select>
+                      {c.zoomJoinUrl && <a href={c.zoomJoinUrl} target="_blank" rel="noreferrer" className="text-xs text-purple-400 hover:underline">Join Zoom →</a>}
+                    </div>
+                  </div>
+                ))}
+              </Panel>
+            )}
+
             {me?.role === 'admin' && (a.stage === 'intake_started' || a.stage === 'consultation_booked') && (
               <Panel title="Consultation (test)">
                 <p className="text-sm text-slate-500">Admin-only: mark a consultation complete without an advisor/booking. Advances to <code>consultation_completed</code>.</p>
