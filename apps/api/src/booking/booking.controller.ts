@@ -65,6 +65,12 @@ export class BookingController {
     return this.booking.cancel(id);
   }
 
+  // Reassign a (pooled) consultation to a specific advisor.
+  @Post('consultations/:id/reassign')
+  reassign(@Param('id') id: string, @Body('advisorId') advisorId: string) {
+    return this.booking.reassign(id, advisorId);
+  }
+
   // Advisor prep view (intake answers + any record).
   @Get('consultations/:id/prep')
   prep(@Param('id') id: string) {

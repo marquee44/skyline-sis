@@ -33,6 +33,9 @@ export class UpdateAdvisorDto {
 
   @IsOptional() @IsBoolean()
   active?: boolean;
+
+  @IsOptional() @IsBoolean()
+  publicBooking?: boolean;
 }
 
 export class CreateAvailabilityRuleDto {

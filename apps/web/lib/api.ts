@@ -319,6 +319,7 @@ export interface Advisor {
   name: string;
   email: string;
   active: boolean;
+  publicBooking?: boolean;
   availabilityRules: AvailabilityRule[];
 }
 

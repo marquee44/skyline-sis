@@ -172,6 +172,16 @@ export class BookingService {
     }
   }
 
+  /** Move a consultation to a specific advisor (staff override — no slot re-check). */
+  async reassign(id: string, advisorId: string) {
+    if (!advisorId) throw new BadRequestException('advisorId is required');
+    const existing = await this.prisma.consultation.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Consultation not found');
+    const advisor = await this.prisma.advisor.findUnique({ where: { id: advisorId } });
+    if (!advisor) throw new BadRequestException('advisorId does not exist');
+    return this.prisma.consultation.update({ where: { id }, data: { advisorId } });
+  }
+
   async cancel(id: string) {
     const existing = await this.prisma.consultation.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Consultation not found');

@@ -107,13 +107,23 @@ function AdvisorCard({ advisor, onChange, setError }: { advisor: Advisor; onChan
         <span className="font-medium">
           {advisor.name} <span className="text-sm text-slate-400">· {advisor.email}{advisor.active ? '' : ' · inactive'}</span>
         </span>
-        <button
-          className="text-xs text-rose-300 hover:underline"
-          onClick={async () => {
-            try { await api.del(`/advisors/${advisor.id}`); onChange(); }
-            catch (err) { setError(err instanceof Error ? err.message : 'Delete failed'); }
-          }}
-        >delete</button>
+        <div className="flex items-center gap-3">
+          <button
+            className={`text-xs ${advisor.publicBooking ? 'font-medium text-purple-300' : 'text-slate-500 hover:text-white'}`}
+            title="The single calendar that backs the public /book page"
+            onClick={async () => {
+              try { await api.patch(`/advisors/${advisor.id}`, { publicBooking: !advisor.publicBooking }); onChange(); }
+              catch (err) { setError(err instanceof Error ? err.message : 'Update failed'); }
+            }}
+          >{advisor.publicBooking ? '★ Public calendar' : '☆ Make public calendar'}</button>
+          <button
+            className="text-xs text-rose-300 hover:underline"
+            onClick={async () => {
+              try { await api.del(`/advisors/${advisor.id}`); onChange(); }
+              catch (err) { setError(err instanceof Error ? err.message : 'Delete failed'); }
+            }}
+          >delete</button>
+        </div>
       </div>
       <ul className="mb-2 space-y-1 text-sm">
         {advisor.availabilityRules.map((r) => (
@@ -235,21 +245,34 @@ function BookingPanel({ advisors, setError }: { advisors: Advisor[]; setError: (
       {consultations.length > 0 && (
         <div className="space-y-1">
           <h3 className="text-sm font-semibold text-slate-500">Booked</h3>
-          <ul className="divide-y divide-slate-200 text-sm dark:divide-slate-800">
+          <ul className="divide-y divide-slate-800 text-sm">
             {consultations.map((c) => (
-              <li key={c.id} className="flex items-center justify-between py-1.5">
+              <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
                 <span>
                   {fmt(c.scheduledStartUtc)} · {c.applicant?.firstName} {c.applicant?.lastName}
                   <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${c.status === 'cancelled' ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'}`}>{c.status}</span>
                 </span>
                 {c.status === 'booked' && (
-                  <button
-                    className="text-xs text-rose-300 hover:underline"
-                    onClick={async () => {
-                      try { await api.post(`/consultations/${c.id}/cancel`, {}); await loadConsultations(advisorId); await fetchSlots(); }
-                      catch (err) { setError(err instanceof Error ? err.message : 'Cancel failed'); }
-                    }}
-                  >cancel</button>
+                  <span className="flex items-center gap-2">
+                    <select
+                      className={`${inputCls} py-1 text-xs`}
+                      value={c.advisor?.id ?? advisorId}
+                      onChange={async (e) => {
+                        if (e.target.value === (c.advisor?.id ?? advisorId)) return;
+                        try { await api.post(`/consultations/${c.id}/reassign`, { advisorId: e.target.value }); await loadConsultations(advisorId); }
+                        catch (err) { setError(err instanceof Error ? err.message : 'Reassign failed'); }
+                      }}
+                    >
+                      {advisors.filter((a) => a.active).map((a) => <option key={a.id} value={a.id}>→ {a.name}</option>)}
+                    </select>
+                    <button
+                      className="text-xs text-rose-300 hover:underline"
+                      onClick={async () => {
+                        try { await api.post(`/consultations/${c.id}/cancel`, {}); await loadConsultations(advisorId); await fetchSlots(); }
+                        catch (err) { setError(err instanceof Error ? err.message : 'Cancel failed'); }
+                      }}
+                    >cancel</button>
+                  </span>
                 )}
               </li>
             ))}

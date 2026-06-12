@@ -47,6 +47,13 @@ export class AdvisorsService {
 
   async update(id: string, dto: UpdateAdvisorDto) {
     await this.get(id);
+    // Only one advisor can be the shared public calendar — unset any other first.
+    if (dto.publicBooking === true) {
+      await this.prisma.advisor.updateMany({
+        where: { id: { not: id }, publicBooking: true },
+        data: { publicBooking: false },
+      });
+    }
     return this.prisma.advisor.update({ where: { id }, data: dto });
   }
 
