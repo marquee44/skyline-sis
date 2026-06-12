@@ -72,7 +72,7 @@ export default function BookPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-10 text-slate-800">
+    <main className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-10 text-slate-800 [color-scheme:light]">
       <div className="mx-auto max-w-3xl">
         <header className="mb-6 text-center">
           <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 text-lg font-bold text-white">S</div>
@@ -150,7 +150,7 @@ export default function BookPage() {
   );
 }
 
-const inp = 'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none';
+const inp = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:outline-none';
 
 // Optional AI questionnaire shown after booking — one adaptive question at a time,
 // distilled into the advisor's prep brief. Fully skippable.
@@ -194,7 +194,7 @@ function Questionnaire({ consultationId }: { consultationId: string }) {
       <p className="text-xs uppercase tracking-wide text-slate-400">Question {answers.length + 1}</p>
       <p className="mt-1 text-sm font-medium text-slate-800">{busy && !question ? 'Thinking…' : question ?? 'Loading…'}</p>
       <textarea
-        className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-purple-500 focus:outline-none"
+        className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:outline-none"
         rows={2}
         value={val}
         onChange={(e) => setVal(e.target.value)}
