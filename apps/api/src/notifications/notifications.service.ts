@@ -60,4 +60,22 @@ export class NotificationsService {
       this.sign,
     ]);
   }
+
+  paymentReminder(a: Recipient, amount: string, currency: string, label?: string) {
+    return this.send(a.email, `Reminder: payment due — ${amount} ${currency}`, [
+      `Hi ${a.firstName},`, '',
+      `A friendly reminder that you have an outstanding balance${label ? ` for ${label}` : ''}: ${amount} ${currency}.`,
+      `Review and settle it in your student portal: ${this.base}/portal`,
+      this.sign,
+    ]);
+  }
+
+  documentReminder(a: Recipient, type: string) {
+    return this.send(a.email, `Reminder: please upload your ${type}`, [
+      `Hi ${a.firstName},`, '',
+      `We're still waiting for your "${type}" document to move your application forward.`,
+      `Please upload it in your student portal: ${this.base}/portal`,
+      this.sign,
+    ]);
+  }
 }

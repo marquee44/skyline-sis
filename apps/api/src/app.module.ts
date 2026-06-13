@@ -23,6 +23,7 @@ import { MeModule } from './me/me.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { AuditModule } from './audit/audit.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { DunningModule } from './dunning/dunning.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     KnowledgeModule,
     AuditModule,
     NotificationsModule,
+    DunningModule,
   ],
   providers: [{ provide: APP_INTERCEPTOR, useClass: AuditContextInterceptor }],
 })

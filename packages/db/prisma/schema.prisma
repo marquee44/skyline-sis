@@ -483,6 +483,8 @@ model Document {
   notes       String?
   // Soft-delete: archived, not erased — file is retained for recovery.
   deletedAt   DateTime?      @map("deleted_at") @db.Timestamptz(6)
+  // Last dunning nudge for this required document (throttles upload reminders).
+  reminderSentAt DateTime?   @map("reminder_sent_at") @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -511,6 +513,8 @@ model Invoice {
   status      InvoiceStatus @default(draft)
   issuedAt    DateTime?     @map("issued_at") @db.Timestamptz(6)
   dueAt       DateTime?     @map("due_at") @db.Timestamptz(6)
+  // Last dunning nudge for this invoice (throttles repeated payment reminders).
+  reminderSentAt DateTime?  @map("reminder_sent_at") @db.Timestamptz(6)
 
   payments Payment[]
 
