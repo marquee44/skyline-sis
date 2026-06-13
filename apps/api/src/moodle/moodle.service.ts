@@ -20,6 +20,14 @@ export interface MoodleCourse {
   categoryid: number;
 }
 
+export interface MoodleEnrolledUser {
+  id: number;
+  firstname: string;
+  lastname: string;
+  email?: string;
+  roles?: { roleid: number; shortname: string; name?: string }[];
+}
+
 /**
  * Moodle Web Services REST client (spec section 12). One direction for
  * provisioning: SIS → Moodle. Token is a secret env var; the SIS calls Moodle,
@@ -119,6 +127,14 @@ export class MoodleService {
     const courses = await this.call<MoodleCourse[]>('core_course_get_courses', {});
     // id 1 is Moodle's site (front page) "course" — never a real course.
     return Array.isArray(courses) ? courses.filter((c) => c.id !== 1) : [];
+  }
+
+  // Enrolled users for a course, with their roles (used to pick out teachers).
+  async enrolledUsers(moodleCourseId: number): Promise<MoodleEnrolledUser[]> {
+    const users = await this.call<MoodleEnrolledUser[]>('core_enrol_get_enrolled_users', {
+      courseid: moodleCourseId,
+    });
+    return Array.isArray(users) ? users : [];
   }
 
   // ── Read-back (increment 14, read-only) ─────────────────────────────────────

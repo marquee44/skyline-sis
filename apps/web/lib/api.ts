@@ -106,6 +106,15 @@ export interface AuditLogRow {
   createdAt: string;
 }
 
+export interface TeacherRow {
+  id: string;
+  moodleUserId: number;
+  name: string;
+  email: string | null;
+  courseCount: number;
+  courses: { name: string; program: string | null; level: string | null; role: string | null }[];
+}
+
 export interface KnowledgeEntry {
   id: string;
   question: string;

@@ -263,6 +263,7 @@ model Course {
   sequence       Int     @default(0)
 
   enrollments    CourseEnrollment[]
+  instructors    CourseInstructor[]
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -270,6 +271,36 @@ model Course {
   @@index([programId])
   @@index([termId])
   @@map("courses")
+}
+
+// Teachers/instructors read from Moodle (course editingteacher/teacher roles).
+// SIS displays them; they are NOT SIS login users.
+model Teacher {
+  id           String  @id @default(uuid())
+  moodleUserId Int     @unique @map("moodle_user_id")
+  firstName    String  @map("first_name")
+  lastName     String  @map("last_name")
+  email        String?
+
+  courses CourseInstructor[]
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("teachers")
+}
+
+model CourseInstructor {
+  id        String  @id @default(uuid())
+  courseId  String  @map("course_id")
+  course    Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  teacherId String  @map("teacher_id")
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  role      String? // editingteacher | teacher
+
+  @@unique([courseId, teacherId])
+  @@index([teacherId])
+  @@map("course_instructors")
 }
 
 enum TermEnrollmentStatus {
