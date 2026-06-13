@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import { UserRole } from '@skyline/db';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { JwtPayload } from './roles';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async login(email: string, password: string) {
@@ -53,6 +55,7 @@ export class AuthService {
         data: { email: applicant.email, passwordHash, role: UserRole.student, applicantId },
       });
     }
+    void this.notifications.studentLoginCreated(applicant, tempPassword);
     return { email: applicant.email, tempPassword };
   }
 

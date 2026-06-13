@@ -8,6 +8,7 @@ import { ApplicantStage, DocumentStatus } from '@skyline/db';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { ApplicantsService } from '../applicants/applicants.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateDocumentDto, VerifyDocumentDto } from './dto';
 
 // Stages at/after which document collection is allowed (spec: AFTER consultation).
@@ -30,6 +31,7 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly applicants: ApplicantsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   list(applicantId: string) {
@@ -50,8 +52,8 @@ export class DocumentsService {
 
   // Create a required-document slot (e.g. staff requests a passport).
   async create(dto: CreateDocumentDto) {
-    await this.assertCollectable(dto.applicantId);
-    return this.prisma.document.create({
+    const applicant = await this.assertCollectable(dto.applicantId);
+    const doc = await this.prisma.document.create({
       data: {
         applicantId: dto.applicantId,
         type: dto.type,
@@ -59,6 +61,8 @@ export class DocumentsService {
         notes: dto.notes,
       },
     });
+    void this.notifications.documentRequested(applicant, dto.type);
+    return doc;
   }
 
   async upload(documentId: string, file: { originalname: string; buffer: Buffer }) {

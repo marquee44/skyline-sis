@@ -22,6 +22,7 @@ import { MoodleModule } from './moodle/moodle.module';
 import { MeModule } from './me/me.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { AuditModule } from './audit/audit.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { AuditModule } from './audit/audit.module';
     MeModule,
     KnowledgeModule,
     AuditModule,
+    NotificationsModule,
   ],
   providers: [{ provide: APP_INTERCEPTOR, useClass: AuditContextInterceptor }],
 })

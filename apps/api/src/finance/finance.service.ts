@@ -15,6 +15,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplicantsService } from '../applicants/applicants.service';
 import { JobsService } from '../jobs/jobs.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { MOODLE_PROVISION_QUEUE } from '../moodle/queue';
 import { CreateForwardDto, CreateInvoiceDto, CreatePaymentDto } from './dto';
 
@@ -26,6 +27,7 @@ export class FinanceService {
     private readonly prisma: PrismaService,
     private readonly applicants: ApplicantsService,
     private readonly jobs: JobsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // The fraction of an invoice that must be paid to unlock Moodle provisioning
@@ -84,6 +86,8 @@ export class FinanceService {
       data: { status: InvoiceStatus.issued, issuedAt: new Date() },
     });
     await this.advance(invoice.applicantId, ApplicantStage.documents_verified, ApplicantStage.invoice_issued, 'invoice issued');
+    const a = await this.prisma.applicant.findUnique({ where: { id: invoice.applicantId }, select: { firstName: true, email: true } });
+    if (a) void this.notifications.invoiceIssued(a, updated.amountTotal.toString(), updated.currency);
     return updated;
   }
 
@@ -130,6 +134,17 @@ export class FinanceService {
         : InvoiceStatus.issued;
 
     await this.prisma.invoice.update({ where: { id: invoiceId }, data: { status } });
+
+    const outstanding = total.minus(paid);
+    const recipient = await this.prisma.applicant.findUnique({ where: { id: invoice.applicantId }, select: { firstName: true, email: true } });
+    if (recipient) {
+      void this.notifications.paymentReceipt(
+        recipient,
+        new Prisma.Decimal(dto.amount).toString(),
+        invoice.currency,
+        (outstanding.lt(0) ? new Prisma.Decimal(0) : outstanding).toDecimalPlaces(2).toString(),
+      );
+    }
 
     // Moodle unlock: paid fraction past the configured threshold.
     const unlocked = total.gt(0) && paid.gte(total.times(this.unlockThreshold()));
@@ -682,6 +697,7 @@ export class FinanceService {
       update: { status: TermEnrollmentStatus.invoiced, invoiceId: invoice.id },
       create: { applicantId, termId, status: TermEnrollmentStatus.invoiced, invoiceId: invoice.id },
     });
+    void this.notifications.invoiceIssued(applicant, amountTotal.toString(), term.tuitionCurrency, term.name);
     return invoice;
   }
 }
