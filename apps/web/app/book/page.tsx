@@ -157,6 +157,8 @@ const inp = 'rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-
 function Questionnaire({ consultationId }: { consultationId: string }) {
   const [answers, setAnswers] = useState<{ q: string; a: string }[]>([]);
   const [question, setQuestion] = useState<string | null>(null);
+  const [options, setOptions] = useState<string[]>([]);
+  const [otherOpen, setOtherOpen] = useState(false);
   const [val, setVal] = useState('');
   const [busy, setBusy] = useState(false);
   const [started, setStarted] = useState(false);
@@ -164,13 +166,20 @@ function Questionnaire({ consultationId }: { consultationId: string }) {
   const [hidden, setHidden] = useState(false);
 
   async function send(nextAnswers: { q: string; a: string }[]) {
-    setBusy(true);
+    setBusy(true); setOtherOpen(false); setVal('');
     try {
-      const res = await api.post<{ done: boolean; nextQuestion: string | null }>('/public/booking/questionnaire', { consultationId, answers: nextAnswers });
+      const res = await api.post<{ done: boolean; nextQuestion: string | null; options?: string[] }>('/public/booking/questionnaire', { consultationId, answers: nextAnswers });
       if (res.done || !res.nextQuestion) setFinished(true);
-      else { setQuestion(res.nextQuestion); setVal(''); }
+      else { setQuestion(res.nextQuestion); setOptions(res.options ?? []); }
     } catch { setFinished(true); }
     finally { setBusy(false); }
+  }
+
+  function answer(text: string) {
+    if (!question || busy) return;
+    const next = [...answers, { q: question, a: text }];
+    setAnswers(next);
+    send(next);
   }
 
   if (hidden) return null;
@@ -180,7 +189,7 @@ function Questionnaire({ consultationId }: { consultationId: string }) {
     return (
       <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
         <p className="text-sm font-medium text-slate-700">Help your advisor prepare (optional)</p>
-        <p className="mt-1 text-xs text-slate-500">A few quick questions so your consultation is more useful. Takes under a minute.</p>
+        <p className="mt-1 text-xs text-slate-500">A few quick questions — just tap to answer. Takes under a minute.</p>
         <div className="mt-3 flex gap-2">
           <button onClick={() => { setStarted(true); send([]); }} className="rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-500">Start</button>
           <button onClick={() => setHidden(true)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-white">No thanks</button>
@@ -193,21 +202,33 @@ function Questionnaire({ consultationId }: { consultationId: string }) {
     <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4 text-left">
       <p className="text-xs uppercase tracking-wide text-slate-400">Question {answers.length + 1}</p>
       <p className="mt-1 text-sm font-medium text-slate-800">{busy && !question ? 'Thinking…' : question ?? 'Loading…'}</p>
-      <textarea
-        className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:outline-none"
-        rows={2}
-        value={val}
-        onChange={(e) => setVal(e.target.value)}
-        placeholder="Your answer…"
-        disabled={busy || !question}
-      />
-      <div className="mt-2 flex gap-2">
-        <button
-          disabled={busy || !question || !val.trim()}
-          onClick={() => { const next = [...answers, { q: question!, a: val.trim() }]; setAnswers(next); send(next); }}
-          className="rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50"
-        >{busy ? '…' : 'Next'}</button>
-        <button onClick={() => setFinished(true)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-white">Finish</button>
+
+      {question && !busy && (
+        <>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {options.map((o) => (
+              <button key={o} onClick={() => answer(o)}
+                className="rounded-full border border-purple-200 bg-white px-3 py-1.5 text-sm text-purple-700 hover:border-purple-500 hover:bg-purple-50">
+                {o}
+              </button>
+            ))}
+            {!otherOpen && (
+              <button onClick={() => setOtherOpen(true)} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-50">Other…</button>
+            )}
+          </div>
+          {otherOpen && (
+            <div className="mt-2 flex gap-2">
+              <input autoFocus className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-purple-500 focus:outline-none"
+                value={val} onChange={(e) => setVal(e.target.value)} placeholder="Type your answer…"
+                onKeyDown={(e) => { if (e.key === 'Enter' && val.trim()) answer(val.trim()); }} />
+              <button disabled={!val.trim()} onClick={() => answer(val.trim())} className="rounded-lg bg-purple-600 px-3 py-2 text-sm font-medium text-white hover:bg-purple-500 disabled:opacity-50">Send</button>
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="mt-3">
+        <button onClick={() => setFinished(true)} className="text-xs text-slate-500 hover:underline">Finish &amp; skip the rest</button>
       </div>
     </div>
   );
