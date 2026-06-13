@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { AuditContextInterceptor } from './common/audit-context.interceptor';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { JobsModule } from './jobs/jobs.module';
@@ -47,5 +49,6 @@ import { KnowledgeModule } from './knowledge/knowledge.module';
     MeModule,
     KnowledgeModule,
   ],
+  providers: [{ provide: APP_INTERCEPTOR, useClass: AuditContextInterceptor }],
 })
 export class AppModule {}

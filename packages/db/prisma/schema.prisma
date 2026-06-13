@@ -569,3 +569,20 @@ model KnowledgeEntry {
 
   @@map("knowledge_entries")
 }
+
+// Immutable audit trail of writes to records-bearing entities (who/what/when/
+// old→new). Written automatically by a Prisma write-hook; never edited.
+model AuditLog {
+  id          String   @id @default(uuid())
+  entity      String
+  entityId    String?  @map("entity_id")
+  action      String   // create | update | delete
+  actorUserId String?  @map("actor_user_id")
+  before      Json?
+  after       Json?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([entity, entityId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
