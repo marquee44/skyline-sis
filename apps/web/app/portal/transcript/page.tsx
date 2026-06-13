@@ -40,7 +40,7 @@ export default function TranscriptPage() {
       </div>
 
       <header className="space-y-1 border-b border-slate-200 pb-4 dark:border-slate-800">
-        <h1 className="text-2xl font-bold">Transcript</h1>
+        <h1 className="text-2xl font-bold">Transcript <span className="align-middle text-xs font-medium text-amber-600">· Unofficial — advising only</span></h1>
         <p className="text-sm text-slate-600 dark:text-slate-300">{t.student.name} · {t.student.email}</p>
         <p className="text-sm text-slate-500">
           {t.program ? `${t.program.name} (${t.program.level})` : '—'}{t.university ? ` · ${t.university.name}` : ''}

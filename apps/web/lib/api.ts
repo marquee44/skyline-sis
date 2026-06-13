@@ -94,6 +94,18 @@ export interface Course {
   term?: { id: string; name: string; sequence: number } | null;
 }
 
+export interface AuditLogRow {
+  id: string;
+  entity: string;
+  entityId: string | null;
+  action: string;
+  actorUserId: string | null;
+  actorEmail: string | null;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface KnowledgeEntry {
   id: string;
   question: string;

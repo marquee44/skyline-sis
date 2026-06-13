@@ -21,6 +21,7 @@ import { FinanceModule } from './finance/finance.module';
 import { MoodleModule } from './moodle/moodle.module';
 import { MeModule } from './me/me.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { KnowledgeModule } from './knowledge/knowledge.module';
     MoodleModule,
     MeModule,
     KnowledgeModule,
+    AuditModule,
   ],
   providers: [{ provide: APP_INTERCEPTOR, useClass: AuditContextInterceptor }],
 })

@@ -12,6 +12,7 @@ const NAV = [
   { href: '/catalog', label: 'Catalog', icon: '📚' },
   { href: '/knowledge', label: 'Knowledge', icon: '💡' },
   { href: '/advisors', label: 'Advisors', icon: '🗓' },
+  { href: '/audit', label: 'Audit log', icon: '🧾' },
   { href: '/account', label: 'Account', icon: '⚙' },
 ];
 

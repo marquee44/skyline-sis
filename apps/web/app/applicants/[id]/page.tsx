@@ -18,8 +18,10 @@ import {
   type TranscriptCourse,
   type Consultation,
   type Advisor,
+  type AuditLogRow,
 } from '@/lib/api';
 import { Shell } from '@/components/Shell';
+import { AuditList } from '@/components/AuditList';
 
 const DOC_TYPES = ['passport', 'emirates_id', 'prior_diploma', 'transcript', 'photo', 'legalization', 'other'];
 const DOC_LABELS: Record<string, string> = {
@@ -318,6 +320,8 @@ export default function ApplicantDetailPage() {
                 ))}
               </ol>
             </Panel>
+
+            <ActivityPanel applicantId={id} />
           </div>
         </div>
       </div>
@@ -528,6 +532,19 @@ function DetailsPanel({ applicant, onSave }: { applicant: ApplicantDetail; onSav
   );
 }
 
+function ActivityPanel({ applicantId }: { applicantId: string }) {
+  const [rows, setRows] = useState<AuditLogRow[]>([]);
+  useEffect(() => {
+    api.get<AuditLogRow[]>(`/audit?entity=Applicant&entityId=${applicantId}&limit=25`).then(setRows).catch(() => {});
+  }, [applicantId]);
+  return (
+    <Panel title="Activity (audit)">
+      <p className="-mt-1 text-xs text-slate-500">Changes to this applicant record — who, when, old → new.</p>
+      <AuditList rows={rows} />
+    </Panel>
+  );
+}
+
 function AcademicPanel({ applicantId }: { applicantId: string }) {
   const [t, setT] = useState<Transcript | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -554,6 +571,7 @@ function AcademicPanel({ applicantId }: { applicantId: string }) {
   return (
     <Panel title="Courses & grades">
       <p className="text-sm text-slate-500">{totalEnrolled} enrolled of {t.courses.length} courses · grades read from Moodle</p>
+      <p className="-mt-1 text-xs font-medium text-amber-300/80">Unofficial — advising only. The official record is held by the university.</p>
       <div className="space-y-2">
         {terms.map((term) => {
           const isOpen = openTerm === term.name;
