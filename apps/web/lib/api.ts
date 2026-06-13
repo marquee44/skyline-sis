@@ -92,6 +92,7 @@ export interface Course {
   sequence: number;
   program?: { id: string; name: string };
   term?: { id: string; name: string; sequence: number } | null;
+  instructors?: { role: string | null; teacher: { firstName: string; lastName: string } }[];
 }
 
 export interface AuditLogRow {

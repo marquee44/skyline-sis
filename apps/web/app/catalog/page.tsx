@@ -418,7 +418,12 @@ function Courses({
                       <ul className="divide-y divide-slate-800/70 rounded-lg border border-slate-800">
                         {t.items.map((c) => (
                           <li key={c.id} className="flex items-center justify-between px-3 py-1.5 text-sm">
-                            <span className="text-slate-200">{c.name} <span className="text-xs text-slate-500">· moodle:{c.moodleCourseId ?? '—'}</span></span>
+                            <span className="text-slate-200">
+                              {c.name} <span className="text-xs text-slate-500">· moodle:{c.moodleCourseId ?? '—'}</span>
+                              {c.instructors && c.instructors.length > 0 && (
+                                <span className="text-xs text-purple-300"> · 🎓 {c.instructors.map((i) => `${i.teacher.firstName} ${i.teacher.lastName}`).join(', ')}</span>
+                              )}
+                            </span>
                             <button onClick={() => guarded(async () => { await api.del(`/courses/${c.id}`); onChange(); }, setError)} className="text-xs text-rose-300 hover:underline">delete</button>
                           </li>
                         ))}

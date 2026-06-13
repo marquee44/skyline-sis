@@ -132,6 +132,7 @@ export class CatalogService {
       include: {
         program: { select: { id: true, name: true } },
         term: { select: { id: true, name: true, sequence: true } },
+        instructors: { include: { teacher: { select: { firstName: true, lastName: true } } } },
       },
     });
   }
