@@ -110,6 +110,17 @@ export class CatalogService {
 
   async removeProgram(id: string) {
     await this.getProgram(id);
+    // Deleting a program DB-cascades to terms→courses→enrolments — which would
+    // silently wipe student records (and bypass the audit hook). Block it.
+    const [te, ce] = await Promise.all([
+      this.prisma.termEnrollment.count({ where: { term: { programId: id } } }),
+      this.prisma.courseEnrollment.count({ where: { course: { programId: id } } }),
+    ]);
+    if (te + ce > 0) {
+      throw new BadRequestException(
+        'Cannot delete a program with student enrolments — they would be wiped. Withdraw/clear the enrolments first.',
+      );
+    }
     return this.prisma.program.delete({ where: { id } });
   }
 
@@ -147,6 +158,10 @@ export class CatalogService {
   async removeCourse(id: string) {
     const c = await this.prisma.course.findUnique({ where: { id } });
     if (!c) throw new NotFoundException('Course not found');
+    const ce = await this.prisma.courseEnrollment.count({ where: { courseId: id } });
+    if (ce > 0) {
+      throw new BadRequestException('Cannot delete a course with student enrolments — they would be wiped.');
+    }
     return this.prisma.course.delete({ where: { id } });
   }
 

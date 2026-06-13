@@ -481,6 +481,8 @@ model Document {
   status      DocumentStatus @default(required)
   filePath    String?        @map("file_path") // path within STORAGE_DIR, never public
   notes       String?
+  // Soft-delete: archived, not erased — file is retained for recovery.
+  deletedAt   DateTime?      @map("deleted_at") @db.Timestamptz(6)
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)

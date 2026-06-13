@@ -34,7 +34,7 @@ export class DocumentsService {
 
   list(applicantId: string) {
     return this.prisma.document.findMany({
-      where: { applicantId },
+      where: { applicantId, deletedAt: null },
       orderBy: { createdAt: 'asc' },
     });
   }
@@ -94,7 +94,7 @@ export class DocumentsService {
 
   async fileFor(documentId: string) {
     const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
-    if (!doc || !doc.filePath) throw new NotFoundException('No file for this document');
+    if (!doc || !doc.filePath || doc.deletedAt) throw new NotFoundException('No file for this document');
     return { stream: this.storage.readStream(doc.filePath), doc };
   }
 
@@ -109,9 +109,10 @@ export class DocumentsService {
     });
     if (!a) throw new NotFoundException('Applicant not found');
 
+    const docs = a.documents.filter((d) => !d.deletedAt);
     const archive = new ZipArchive({ zlib: { level: 9 } });
-    archive.append(this.enrollmentSummary(a), { name: 'enrollment-summary.txt' });
-    for (const d of a.documents) {
+    archive.append(this.enrollmentSummary({ ...a, documents: docs }), { name: 'enrollment-summary.txt' });
+    for (const d of docs) {
       if (!d.filePath) continue;
       const ext = d.filePath.split('.').pop();
       archive.append(this.storage.readStream(d.filePath), { name: `documents/${d.type}${ext ? '.' + ext : ''}` });
@@ -166,11 +167,13 @@ export class DocumentsService {
     ].join('\n');
   }
 
+  // Soft-delete: archive the slot (and keep the file) so it's recoverable, rather
+  // than erasing the record + file.
   async remove(documentId: string) {
     const doc = await this.prisma.document.findUnique({ where: { id: documentId } });
     if (!doc) throw new NotFoundException('Document not found');
-    if (doc.filePath) await this.storage.remove(doc.filePath).catch(() => undefined);
-    return this.prisma.document.delete({ where: { id: documentId } });
+    if (doc.deletedAt) return doc;
+    return this.prisma.document.update({ where: { id: documentId }, data: { deletedAt: new Date() } });
   }
 
   // When the first document is uploaded, move the applicant into documents_pending.
