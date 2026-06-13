@@ -47,6 +47,16 @@ export class FinanceService {
     const program = await this.prisma.program.findUnique({ where: { id: programId } });
     if (!program) throw new BadRequestException('programId does not exist');
 
+    // Guard the legacy whole-program invoice: multi-semester programs are billed
+    // per term (invoiceTerm). Issuing a flat program invoice here double-counts
+    // against the per-term ledger, so reject it (closes the public-page billing hole).
+    const termCount = await this.prisma.term.count({ where: { programId } });
+    if (termCount > 0) {
+      throw new BadRequestException(
+        'This program is billed per semester — issue invoices per term from "Semesters & progress", not as a whole-program invoice.',
+      );
+    }
+
     const amount = dto.amountTotal !== undefined
       ? new Prisma.Decimal(dto.amountTotal)
       : program.tuitionTotal;
